@@ -47,3 +47,22 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+
+
+
+
+
+# Ignorer le dossier Perso
+Perso/
+
+# Ignorer le dossier Data
+Data/
+
+# Ignorer le dossier Figures
+Figures/
+
+# Ignorer les fichiers .DS_Store de macOS
+.DS_Store
+
+
