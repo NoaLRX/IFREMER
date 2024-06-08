@@ -221,8 +221,56 @@ for (i in names(ts_list)) {
 
 
 
+# ACP----
+library(FactoMineR)
+library(factoextra)
+library(combinat)
+
+res.pca1 = PCA(land_w[1:45], axes=c(1,2))
+fviz_pca_var(res.pca1, col.var="cos2")
+res.pca1$eig[1,2]
+res.pca1$eig[2,2]
 
 
+
+# MAXIMISATION DES AXES----
+calc_inertia_sum <- function(data) {
+  res.pca <- PCA(data, axes=c(1,2), graph=FALSE)
+  return(res.pca$eig[1,2] + res.pca$eig[2,2])
+}
+
+# Initialisation des variables pour stocker le meilleur résultat
+best_inertia_sum <- 0
+best_combination <- NULL
+
+# Boucle sur toutes les tailles de combinaisons possibles
+for (k in 2:ncol(land_w)) {
+  # Générer toutes les combinaisons de k variables
+  combinations <- combn(1:ncol(land_w), k)
+  
+  # Boucle sur chaque combinaison
+  for (i in 1:ncol(combinations)) {
+    # Sélectionner les variables pour cette combinaison
+    selected_vars <- combinations[,i]
+    
+    # Calculer la somme de l'inertie pour cette combinaison
+    inertia_sum <- calc_inertia_sum(land_w[, selected_vars])
+    
+    # Mettre à jour le meilleur résultat si nécessaire
+    if (inertia_sum > best_inertia_sum) {
+      best_inertia_sum <- inertia_sum
+      best_combination <- selected_vars
+    }
+  }
+}
+
+# Afficher les résultats
+cat("Meilleure combinaison de variables :", best_combination, "\n")
+cat("Somme maximale de l'inertie (axes 1 et 2) :", best_inertia_sum, "\n")
+
+# Visualiser l'ACP avec la meilleure combinaison
+best_pca <- PCA(land_w[, best_combination], axes=c(1,2))
+fviz_pca_var(best_pca, col.var="cos2")
 
 
 
