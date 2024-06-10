@@ -4,7 +4,8 @@ library(tsoutliers)
 library(seastests)
 library(tseries)
 library(TSA)
-
+library(RJDemetra)
+library(crayon)
 
 # Load data framee
 landingsV2 <- read.csv("Perso/landingsV2.csv")
@@ -42,6 +43,7 @@ for (i in 3:ncol(land_w)) {
 for (col_name in names(ts_list)) {
   ts_name <- paste0("ts_", col_name)
   ts_name_tso <- paste0("tso_", col_name)
+  ts_name_adj <- paste0("ts_", col_name, "_adj")  # New name for the adjusted series
   
   ts_data <- get(ts_name)
   
@@ -51,7 +53,7 @@ for (col_name in names(ts_list)) {
     cat("\033[1m\033[31m", "TSO for", col_name, ":\033[0m\n")
     print(fit)
     assign(ts_name_tso, fit)
-    assign(ts_name, fit$yadj)
+    assign(ts_name_adj, fit$yadj)  # Assign the adjusted series to a new name
     
     # Check if there are atypical points before plotting
     if (!is.null(fit$outliers) && nrow(fit$outliers) > 0) {
@@ -66,12 +68,30 @@ for (col_name in names(ts_list)) {
     FALSE
   })
   
-  # If ARIMA adjustment fail, go next
+  # If ARIMA adjustment fails, go to the next iteration
   if (!arima_fit) next
   
 }
 
-# We have an error for : ANE, NEP5, NEP6 and MUT6
+#' We have an error for : ANE, NEP5, NEP6 and MUT6. This is normal for NEP5, NEP6
+#' and MUT6 because the data is really poor, but this is NOT normal for ANE.
+#' We have to try a different method for this variable.
+
+tso(ts_ANE) # No suitable ARIMA model found
+
+# Let's try the X13-ARIMA-SEATS method
+myregx13 <- regarima_x13(ts_ANE, spec ="RG5c")
+summary(myregx13) # 2 outliers, AO (I-2015) and AO (I-2019)
+n <- nrow(ts_ANE)
+adjseries <- matrix(myregx13$model$effects[1:n])
+ts_ANE_adj <- ts(data = adjseries, start=c(2013,01),frequency=4)
+# Now ts_ANE is adjusted with the X13-ARIMA-SEATS method
+
+# Let's get rid of the non-corrected time series
+land_w <- land_w %>% 
+  select(-NEP5, -NEP6, -MUT6)
+
+
 
 
 # Seasonal Adjustment----
@@ -111,10 +131,11 @@ for (col_name in names(ts_list)) {
 
 # Display lists of series with seasonality
 print(seasonal_combined_test)
-length(seasonal_combined_test) # 31
+length(seasonal_combined_test) # 30
 
 print(seasonal_seasdum)
-length(seasonal_seasdum) #38
+length(seasonal_seasdum) #39
+
 
 
 # Calculate the differences between the two lists
@@ -123,9 +144,10 @@ only_seasdum <- setdiff(seasonal_seasdum, seasonal_combined_test)
 both_tests <- intersect(seasonal_combined_test, seasonal_seasdum)
 
 # Show differences
-print(only_combined_test)
-print(only_seasdum)
-print(both_tests)
+only_combined_test
+only_seasdum
+both_tests
+
 
 
 
@@ -178,6 +200,7 @@ print(seasonal_combined_test_after)
 cat(bold("\nSeries still showing seasonality according to seasdum after correction:\n"))
 print(seasonal_seasdum_after)
 
+# It 
 
 for (x in seasonal_combined_test_after){
   cat(bold(underline("Test results for the", x,"\n")))
@@ -225,4 +248,8 @@ res.pca1 = PCA(land_w[3:45], axes=c(1,2))
 fviz_pca_var(res.pca1, col.var="cos2")
 res.pca1$eig[1,2]
 res.pca1$eig[2,2]
+
+
+
+
 

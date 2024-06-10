@@ -25,7 +25,7 @@ library(markdown)
 #' at French fleets and landings.
 
 # Importing, merging and cleaning DATA----
-### Creation of the "IAM" fleet with table J----
+### Creation of the "IAM" fleet with table J
 ## Data importation
 FDI_J <- read.csv("Data/Data_EWG2311/tableJ_EWG2311.csv")
 
@@ -77,7 +77,7 @@ FDI_J <- FDI_J %>%
     TRUE ~ NA_character_))
 
 
-### Creating a segment column----
+### Creating a segment column
 FDI_J <- FDI_J %>%
   mutate(Segment = case_when(
     # COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL0612") ~ "Spanish trawlers < 12m",
@@ -106,7 +106,7 @@ FDI_J <- FDI_J %>%
 
 
 
-### Importing the effort table (table G)----
+### Importing the effort table (table G)
 ## Data importation
 FDI_G <- read.csv("Data/Data_EWG2311/tableG_EWG2311.csv")
 
@@ -123,7 +123,7 @@ FDI_G <- FDI_G %>%
     VESSEL_LENGTH = vessel_length,
     GEO_INDICATOR = geo_indicator)
 
-### Merging fishing effort (table G) and fleets (table J)----
+### Merging fishing effort (table G) and fleets (table J)
 effort <-  merge(FDI_G, unique(FDI_J[,c("COUNTRY","YEAR","VESSEL_LENGTH","FISHING_TECH","SUPRA_REGION"
                                         ,"Segment","FleetIAM")]))
 
@@ -162,7 +162,7 @@ FDI_A <- FDI_A %>%
 
 
 
-#### Merging gregoire's taxons selection and table A----
+#### Merging gregoire's taxons selection and table A
 # Convert dataframes in data.table format
 FDI_A <- as.data.table(FDI_A)
 taxons_select <- as.data.table(taxons_select)
@@ -202,7 +202,7 @@ length(unique(taxons_select$X3A_CODE)) # for a total of 50
 setdiff(unique(taxons_select$X3A_CODE), unique(landings$X3A_CODE)) 
 # Species not present : ARI_bis, KTT, PHA and XOX
 
-#### Creating the IAM fleets typo in table "landings"----
+#### Creating the IAM fleets typo in table "landings"
 landings <- landings %>%
   mutate(FleetIAM = case_when(
     # COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL0612") ~ "ESP_DTS_<12m",
@@ -230,7 +230,7 @@ landings <- landings %>%
     TRUE ~ NA_character_))
 
 
-#### Creating a segment column----
+#### Creating a segment column
 landings <- landings %>%
   mutate(Segment = case_when(
     # COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL0612") ~ "Spanish trawlers < 12m",
@@ -389,7 +389,7 @@ sum(is.na(lpue_df2))
 
 
 
-### Graph: LPUE's evolutions plots----
+## Graph: LPUE's evolutions plots----
 # Get the "unique" species from Grégoire's taxons group
 # species <- unique(lpue_df$Species)
 # plots <- list()
@@ -427,102 +427,6 @@ sum(is.na(lpue_df2))
 # pdf("Figures/FRA/LPUE_species.pdf", width = 20, height = 12)
 # print(combined_plot)
 # dev.off()
-
-
-
-# Correlations----
-#' The idea is to create a correlation's matrix to understand the strength of 
-#' the relation between the evolution of each LPUE species troughs the years.
-#' We want to know if the LPUE's evolution of one specie from 2013 to 2022 is 
-#' highly correlated to another specie.
-
-### Correlations Matrix----
-# Select only the columns that corresponds to species
-lpue <- lpue_df2
-species <- lpue[, -(1:2)] 
-matrice_corr <- cor(species)
-print(matrice_corr)
-# By default, we compute Pearsons's correlations coefficients 
-
-# # Graph: correlation plot
-# corr_matrix <- ggcorrplot(matrice_corr, 
-#                           hc.order = TRUE,  
-#                           type = "upper",   
-#                           lab = TRUE)
-# 
-# # Save the plot
-# pdf("Figures/FRA/correlations.pdf", width = 25, height = 25)
-# print(corr_matrix)
-# dev.off()
-
-#' ### Correlations between >=0.50 & <=-0.50----
-#' #' Just for the sake of visibility, we can filter the correlations that are 
-#' #' between >=0.50 & <=-0.50, to see highly correlated species more clearly
-#' threshold <- 0.50
-#' matrice_corr_filtered <- ifelse(abs(matrice_corr) > threshold, matrice_corr, 0)
-#' print(matrice_corr_filtered)
-#' 
-#' # Graph: correlation plot 2
-#' corr_matrix2 <- ggcorrplot(matrice_corr_filtered,
-#'                           hc.order = TRUE,  
-#'                           type = "upper",
-#'                           lab = TRUE,
-#'                           lab_col = "black",
-#'                           lab_size = 3,
-#'                           show.diag = FALSE)
-#' pdf("Figures/FRA/correlations_above50.pdf", width = 25, height = 25)
-#' print(corr_matrix)
-#' dev.off()
-
-## Correlations dataframes----
-corr_df <- as.data.frame(matrice_corr)
-corr_df <- corr_df[,c("MUT6", "MUT7", "NEP6", "ARA67", "DPS567")]
-
-# Extract the 10th highet values (positive and negative)
-extract_top_values <- function(corr_vector, species_names) {
-  sorted_corr_pos <- sort(corr_vector[corr_vector > 0], decreasing = TRUE)
-  sorted_corr_neg <- sort(corr_vector[corr_vector < 0], decreasing = FALSE)
-
-  positive_values <- head(sorted_corr_pos, 10)
-  negative_values <- head(sorted_corr_neg, 10)
-  
-  if(length(positive_values) < 10) {
-    positive_values <- c(positive_values, rep(NA, 10 - length(positive_values)))
-  }
-  if(length(negative_values) < 10) {
-    negative_values <- c(negative_values, rep(NA, 10 - length(negative_values)))
-  }
-  
-  data.frame(
-    Pos_Species = species_names[match(positive_values, corr_vector)],
-    Pos_Values = positive_values,
-    Neg_Species = species_names[match(negative_values, corr_vector)],
-    Neg_Values = negative_values
-  )
-}
-
-# Apply the function on each columns
-corr_MUT6 <- extract_top_values(corr_df$MUT6, rownames(corr_df))
-corr_MUT7 <- extract_top_values(corr_df$MUT7, rownames(corr_df))
-corr_NEP6 <- extract_top_values(corr_df$NEP6, rownames(corr_df))
-corr_ARA67 <- extract_top_values(corr_df$ARA67, rownames(corr_df))
-corr_DPS567 <- extract_top_values(corr_df$DPS567, rownames(corr_df))
-
-corr_MUT6 <- corr_MUT6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
-corr_MUT7 <- corr_MUT7 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
-corr_NEP6 <- corr_NEP6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
-corr_ARA67 <- corr_ARA67 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
-corr_DPS567 <- corr_DPS567 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
-
-# Affichage des résultats
-print(corr_MUT6)
-print(corr_MUT7)
-print(corr_NEP6)
-print(corr_ARA67)
-print(corr_DPS567)
-
-
-
 
 
 # Compute LPUEs of each species for each fleets----
@@ -937,8 +841,6 @@ sum(is.na(vpue_df2))
 
 
 
-
-
 # Compute VPUEs of each species for each fleets----
 # Get all species 
 species <- unique(landingsV2$X3A_CODE)
@@ -1233,7 +1135,7 @@ vpue_SFG <- vpue_SFG[, colSums(vpue_SFG != 0) > 0]
 # 
 
 
-## €/Kg evolution plot----
+# Compute €/Kg----
 
 # Compute €/kg values
 
@@ -1268,6 +1170,35 @@ for (yr in years) {
   }
 }
 
+# Create the €/KG data frame
+# Supposons que les données sont dans un dataframe appelé 'value_landings_df'
+
+# Extraire les noms des colonnes
+col_names <- names(value_landings_df)
+
+# Trouver les noms des espèces (les 3 dernières lettres des noms de colonnes)
+species <- unique(substr(col_names[grep("^(LANDINGS|VALUE)_", col_names)], nchar(col_names[grep("^(LANDINGS|VALUE)_", col_names)])-2, nchar(col_names[grep("^(LANDINGS|VALUE)_", col_names)])))
+
+# Créer un nouveau dataframe avec Year et Quarter
+result_df <- value_landings_df[, c("Year", "Quarter")]
+
+# Calculer la valeur par kg pour chaque espèce, par trimestre et par année
+for(sp in species) {
+  landing_col <- paste0("LANDINGS_", sp)
+  value_col <- paste0("VALUE_", sp)
+  
+  # Diviser la valeur par les débarquements pour obtenir €/kg
+  result_df[[paste0(sp, "_EurPerKg")]] <- value_landings_df[[value_col]] / value_landings_df[[landing_col]]
+}
+
+# Afficher les premières lignes du résultat
+head(result_df)
+
+
+
+
+
+## €/kg evolution plot----
 # Convert Year and Quarter to a single factor column
 value_landings_df$YearQuarter <- factor(paste(value_landings_df$Year, value_landings_df$Quarter, sep = "Q"))
 
@@ -1367,7 +1298,7 @@ value_subset <- value[, cols, drop = FALSE]
 
 corr_results <- list()
 
-# Calculer les corrélations pour chaque espèce
+# Calculate correlations for each species
 for (col in cols) {
   land_col <- col
   value_col <- col
@@ -1380,7 +1311,7 @@ for (col in cols) {
   }
 }
 
-# Transformer la liste de résultats en dataframe
+# Transforming the results list into a dataframe
 variables <- names(corr_results)
 cor_values <- sapply(corr_results, function(x) if (is.list(x)) x$estimate else NA)
 p_values <- sapply(corr_results, function(x) if (is.list(x)) x$p.value else NA)
@@ -1391,7 +1322,7 @@ corr_df <- tibble(
   P_value = unlist(p_values)
 )
 
-# Filtrer les corrélations significatives (p-value < 0.05)
+# Filter out significant correlations (p-value < 0.05)
 significant_corr_df <- corr_df %>%
   filter(P_value < 0.05)
 
@@ -1400,35 +1331,35 @@ significant_corr_df <- corr_df %>%
 # Correlations btw value (€/kg) & landings (kg) per species and PER FLEETS----
 #' We want to do the same as previously but per specie-fleet duo.
 
-# Liste des flottes
+# Fleets list
 fleets <- unique(landingsV2$FleetIAM)
 
-# Initialiser une liste pour stocker les noms des dataframes créés
+# Initialize a list to store the names of the dataframes created
 df_names <- list()
 
-# Boucle sur chaque flotte
+# Loop of each fleet
 for (fleet in fleets) {
-  # Filtrer les données pour la flotte actuelle
+  # Filter data for current fleet
   fleet_data <- landingsV2 %>% filter(FleetIAM == fleet)
   
-  # Créer les dataframes 'land' et 'value' pour la flotte actuelle
+  # Create 'land' and 'value' dataframes for the current fleet
   land <- fleet_data[, c("YEAR", "quarter", "X3A_CODE", "totwghtlandg")]
   land <- dcast(land, YEAR + quarter ~ X3A_CODE, value.var = "totwghtlandg", fun.aggregate = sum)
   
   value <- fleet_data[, c("YEAR", "quarter", "X3A_CODE", "value")]
   value <- dcast(value, YEAR + quarter ~ X3A_CODE, value.var = "value", fun.aggregate = sum)
   
-  # Récupérer les noms de colonnes (excluant 'YEAR' et 'quarter')
+  # Retrieve column names (excluding 'YEAR' and 'quarter')
   cols <- names(land[,3:ncol(land)])
   
-  # Sous-ensemble des dataframes
+  # Subsets of the original dataframe
   land_subset <- land[, cols, drop = FALSE]
   value_subset <- value[, cols, drop = FALSE]
   
-  # Initialiser une liste pour stocker les résultats de corrélation pour cette flotte
+  # Initialize a list to store correlation results for this fleet
   corr_results <- list()
   
-  # Calculer les corrélations pour chaque espèce
+  # Calculate correlations for each species
   for (col in cols) {
     land_col <- col
     value_col <- col
@@ -1441,7 +1372,7 @@ for (fleet in fleets) {
     }
   }
   
-  # Transformer la liste de résultats en dataframe
+  # Transform the list of results into a dataframe
   variables <- names(corr_results)
   cor_values <- sapply(corr_results, function(x) if (is.list(x)) x$estimate else NA)
   p_values <- sapply(corr_results, function(x) if (is.list(x)) x$p.value else NA)
@@ -1452,166 +1383,22 @@ for (fleet in fleets) {
     P_value = unlist(p_values)
   )
   
-  # Filtrer les corrélations significatives (p-value < 0.05)
+  # Filter out significant correlations (p-value < 0.05)
   significant_corr_df <- corr_df %>%
     filter(P_value < 0.05)
   
-  # Créer un nom pour le dataframe de la flotte actuelle
+  # Filter out significant correlations (p-value < 0.05)
   df_name <- paste0("corr_df_q_", fleet)
   
-  # Assigner le dataframe avec le nom créé dynamiquement
+  # Assign dataframe with dynamically created name
   assign(df_name, significant_corr_df)
   
-  # Ajouter le nom du dataframe à la liste des noms
+  # Add dataframe name to name list
   df_names[[fleet]] <- df_name
 }
 
 
 
-
-
-
-
-
-# PER YEAR : Correlations btw value (€/kg) & landings (kg) per species----
-#' Same as before, but we want to see if the correlations coefficients is the 
-#' same between each specie between quarter based values and year based values.
-
-#' landingsV2_year <- landingsV2 %>%
-#'   group_by(YEAR, X3A_CODE, FleetIAM) %>%
-#'   summarize(
-#'     totwghtlandg = sum(totwghtlandg, na.rm = TRUE),
-#'     value = sum(value, na.rm = TRUE)
-#'   ) %>%
-#'   ungroup()
-#' 
-#' head(landingsV2_year)
-#' 
-#' 
-#' species <- unique(landingsV2_year$X3A_CODE)
-#' 
-#' # Create "land" dataframe
-#' land <- landingsV2_year[, c("YEAR", "X3A_CODE", "totwghtlandg")]
-#' land <- reshape2::dcast(land, YEAR ~ X3A_CODE, value.var = "totwghtlandg", fun.aggregate = sum)
-#' 
-#' # Create "value" dataframe
-#' value <- landingsV2_year[, c("YEAR", "X3A_CODE", "value")]
-#' value <- reshape2::dcast(value, YEAR ~ X3A_CODE, value.var = "value", fun.aggregate = sum)
-#' 
-#' # Compute correlation between the two data frames for each species
-#' # Get column names excluding "YEAR" and "quarter"
-#' cols <- names(land[,2:ncol(land)])
-#' 
-#' # Subset the data frames
-#' land_subset <- land[, cols]
-#' value_subset <- value[, cols]
-#' 
-#' # Create an empty list to store the results
-#' corr_results <- list()
-#' 
-#' # Compute correlations of same variable between the two data frames
-#' for (x in cols){
-#'   corr_test <- cor.test(land_subset[, x], value_subset[, x], method = "pearson")
-#'   corr_results[[x]] <- corr_test
-#' }
-#' 
-#' 
-#' # Transform this list in a nice readable data frame
-#' variables <- names(corr_results)
-#' cor_values <- sapply(corr_results, function(x) x$estimate)
-#' p_values <- sapply(corr_results, function(x) x$p.value)
-#' 
-#' corr_df_y <- tibble(
-#'   Espèces = variables,
-#'   Correlation = cor_values,
-#'   P_value = p_values
-#' )
-#' 
-#' 
-#' # Filtering for p.value < 0.05 so that we only see significant correlations
-#' #' We just want to create that function for the future, for now we can see 
-#' #' that all the coefficients are significative.
-#' 
-#' corr_df_y <- corr_df_y %>%
-#'   filter(P_value < 0.05)
-#' 
-#' 
-#' 
-#' 
-#' 
-#' 
-#' 
-#' 
-#' 
-#' # PER YEAR: Correlations btw value (€/kg) & landings (kg) per species and PER FLEETS----
-#' #' We want to do the same as previously but per specie-fleet duo.
-#' 
-#' # Liste des flottes
-#' fleets <- unique(landingsV2_year$FleetIAM)
-#' 
-#' # Initialiser une liste pour stocker les noms des dataframes créés
-#' df_names <- list()
-#' 
-#' # Boucle sur chaque flotte
-#' for (fleet in fleets) {
-#'   # Filtrer les données pour la flotte actuelle
-#'   fleet_data <- landingsV2_year %>% filter(FleetIAM == fleet)
-#'   
-#'   # Créer les dataframes 'land' et 'value' pour la flotte actuelle
-#'   land <- fleet_data[, c("YEAR", "X3A_CODE", "totwghtlandg")]
-#'   land <- dcast(land, YEAR ~ X3A_CODE, value.var = "totwghtlandg", fun.aggregate = sum)
-#'   
-#'   value <- fleet_data[, c("YEAR", "X3A_CODE", "value")]
-#'   value <- dcast(value, YEAR ~ X3A_CODE, value.var = "value", fun.aggregate = sum)
-#'   
-#'   # Récupérer les noms de colonnes (excluant 'YEAR')
-#'   cols <- names(land[,2:ncol(land)])
-#'   
-#'   # Sous-ensemble des dataframes
-#'   land_subset <- land[, cols, drop = FALSE]
-#'   value_subset <- value[, cols, drop = FALSE]
-#'   
-#'   # Initialiser une liste pour stocker les résultats de corrélation pour cette flotte
-#'   corr_results <- list()
-#'   
-#'   # Calculer les corrélations pour chaque espèce
-#'   for (x in cols) {
-#'     if (x %in% names(land_subset) && x %in% names(value_subset)) {
-#'       corr_test <- cor.test(land_subset[, x], value_subset[, x], method = "pearson")
-#'       corr_results[[x]] <- corr_test
-#'     } else {
-#'       corr_results[[x]] <- NA
-#'     }
-#'   }
-#'   
-#'   # Transformer la liste de résultats en dataframe
-#'   variables <- names(corr_results)
-#'   cor_values <- sapply(corr_results, function(x) if (is.list(x)) x$estimate else NA)
-#'   p_values <- sapply(corr_results, function(x) if (is.list(x)) x$p.value else NA)
-#'   
-#'   corr_df <- tibble(
-#'     Espèces = variables,
-#'     Correlation = unlist(cor_values),
-#'     P_value = unlist(p_values)
-#'   )
-#'   
-#'   # Filtrer les corrélations significatives (p-value < 0.05)
-#'   significant_corr_df <- corr_df %>%
-#'     filter(P_value < 0.05)
-#'   
-#'   # Créer un nom pour le dataframe de la flotte actuelle
-#'   df_name <- paste0("corr_df_y_", fleet)
-#'   
-#'   # Assigner le dataframe avec le nom créé dynamiquement
-#'   assign(df_name, significant_corr_df)
-#'   
-#'   # Ajouter le nom du dataframe à la liste des noms
-#'   df_names[[fleet]] <- df_name
-#' }
-
-
-#' We wound no differences between the correlations values per quarter and 
-#' per year.
 
 
 # Share of each species landings (in €) for each fleet----
