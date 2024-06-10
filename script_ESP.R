@@ -390,42 +390,42 @@ sum(is.na(lpue_df2))
 
 ### Graph: LPUE's evolutions plots----
 # Get the "unique" species from Grégoire's taxons group
-species <- unique(lpue_df$Species)
-plots <- list()
-
-# Loop to create a graph for each species
-for (sp in species) {
-  sp_df <- lpue_df[lpue_df$Species == sp, ]
-  # Compute the average LPUE for each year (between the 4 quarters)
-  sp_annual <- aggregate(lpue ~ Year, data = sp_df, FUN = mean)
-  plot <- ggplot(sp_annual, aes(x = Year, y = lpue, alpha = lpue, color = lpue)) +
-    geom_line() +
-    geom_point() +
-    scale_x_continuous(breaks = seq(min(sp_annual$Year), max(sp_annual$Year), by = 3)) +
-    scale_alpha(range = c(0.7, 1), guide = "none") +
-    scale_color_gradient2(low = "darkblue", high = "darkred", mid = "red",
-                          midpoint = mean(sp_annual$lpue),guide = "none")+
-    labs(
-      title = sp,
-      x = "Année",
-      y = "lpue") +
-    theme_minimal()+
-    theme(
-      plot.title = element_text(face = "bold", size = 10),
-      axis.title.x = element_text(size = 8),
-      axis.title.y = element_text(size = 8))
-
-  plots[[sp]] <- plot}
-
-# Combine graphs
-combined_plot <- plots[[1]]
-
-for (i in 2:length(plots)) {
-  combined_plot <- combined_plot + plots[[i]]}
-
-pdf("Figures/ESP/LPUE_species.pdf", width = 20, height = 12)
-print(combined_plot)
-dev.off()
+# species <- unique(lpue_df$Species)
+# plots <- list()
+# 
+# # Loop to create a graph for each species
+# for (sp in species) {
+#   sp_df <- lpue_df[lpue_df$Species == sp, ]
+#   # Compute the average LPUE for each year (between the 4 quarters)
+#   sp_annual <- aggregate(lpue ~ Year, data = sp_df, FUN = mean)
+#   plot <- ggplot(sp_annual, aes(x = Year, y = lpue, alpha = lpue, color = lpue)) +
+#     geom_line() +
+#     geom_point() +
+#     scale_x_continuous(breaks = seq(min(sp_annual$Year), max(sp_annual$Year), by = 3)) +
+#     scale_alpha(range = c(0.7, 1), guide = "none") +
+#     scale_color_gradient2(low = "darkblue", high = "darkred", mid = "red",
+#                           midpoint = mean(sp_annual$lpue),guide = "none")+
+#     labs(
+#       title = sp,
+#       x = "Année",
+#       y = "lpue") +
+#     theme_minimal()+
+#     theme(
+#       plot.title = element_text(face = "bold", size = 10),
+#       axis.title.x = element_text(size = 8),
+#       axis.title.y = element_text(size = 8))
+# 
+#   plots[[sp]] <- plot}
+# 
+# # Combine graphs
+# combined_plot <- plots[[1]]
+# 
+# for (i in 2:length(plots)) {
+#   combined_plot <- combined_plot + plots[[i]]}
+# 
+# pdf("Figures/ESP/LPUE_species.pdf", width = 20, height = 12)
+# print(combined_plot)
+# dev.off()
 
 
 
@@ -580,79 +580,79 @@ for (yr in years) {
 
 ## Graph: LPUE's evolution plots----
 # Extract combo of unique species - fleets
-lpue_cols <- grep("LPUE_", names(lpue_SF), value = TRUE)
-land_cols <- grep("LAND_", names(lpue_SF), value = TRUE)
-
-if (length(lpue_cols) != length(land_cols)) {
-  stop("Le nombre de colonnes LPUE et LAND ne correspond pas.")
-}
-
-# Plot function
-create_plot <- function(lpue_col, land_col) {
-  plot_data <- lpue_SF %>%
-    select(Year, Quarter, LPUE = !!sym(lpue_col), LAND = !!sym(land_col))
-
-  # Check that LPUE >0
-  if (all(plot_data$LPUE == 0)) {
-    return(NULL)
-  }
-
-  # Get column's name without the 5 first letters
-  title_species <- gsub("^LPUE_|^LAND_", "", lpue_col)
-
-  p <- ggplot(plot_data, aes(x = as.factor(paste(Year, Quarter, sep = "Q")))) +
-    geom_line(aes(y = LPUE, color = "LPUE", group = 1)) +
-    geom_line(aes(y = LAND / 1000, color = "LAND", group = 1)) +
-    scale_y_continuous(
-      name = "LPUE",
-      sec.axis = sec_axis(~.*1000, name = "Landings")
-    ) +
-    labs(
-      title = paste("Evolution of LPUE & Landings for", title_species),
-      x = "Year & Quarter"
-    ) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-  return(p)
-}
-# Group plots by species code
-species_groups <- lpue_SF %>%
-  select(starts_with("LPUE_")) %>%
-  names() %>%
-  strsplit("_") %>%
-  sapply(function(x) x[2])
-
-# PDF export directory (change it if you need to)
-output_dir <- "Figures/ESP/LPUE_species_fleets/"
-dir.create(output_dir, showWarnings = FALSE)
-
-for (species in unique(species_groups)) {
-  # Find columns corresponding to the specie
-  species_lpue_cols <- grep(paste0("LPUE_", species, "_"), names(lpue_SF), value = TRUE)
-  species_land_cols <- grep(paste0("LAND_", species, "_"), names(lpue_SF), value = TRUE)
-
-
-  # Create plots next to each other
-  species_plots <- lapply(seq_along(species_lpue_cols), function(i) {
-    create_plot(species_lpue_cols[i], species_land_cols[i])
-  })
-
-  # Delete NULL elements (LPUEs = 0 for all the period
-  species_plots <- species_plots[!sapply(species_plots, is.null)]
-
-  if (length(species_plots) > 0) {
-    combined_plot <- wrap_plots(species_plots, ncol = 2)
-
-    # Export PDF
-    pdf_path <- file.path(output_dir, paste0(species, ".pdf"))
-    ggsave(pdf_path, combined_plot, width = 20, height = 12, units = "in")
-    cat(paste0("Exported ", species, ".pdf\n"))
-  } else {
-    cat(paste0("No plots generated for ", species, "\n"))
-  }
-}
-
+# lpue_cols <- grep("LPUE_", names(lpue_SF), value = TRUE)
+# land_cols <- grep("LAND_", names(lpue_SF), value = TRUE)
+# 
+# if (length(lpue_cols) != length(land_cols)) {
+#   stop("Le nombre de colonnes LPUE et LAND ne correspond pas.")
+# }
+# 
+# # Plot function
+# create_plot <- function(lpue_col, land_col) {
+#   plot_data <- lpue_SF %>%
+#     select(Year, Quarter, LPUE = !!sym(lpue_col), LAND = !!sym(land_col))
+# 
+#   # Check that LPUE >0
+#   if (all(plot_data$LPUE == 0)) {
+#     return(NULL)
+#   }
+# 
+#   # Get column's name without the 5 first letters
+#   title_species <- gsub("^LPUE_|^LAND_", "", lpue_col)
+# 
+#   p <- ggplot(plot_data, aes(x = as.factor(paste(Year, Quarter, sep = "Q")))) +
+#     geom_line(aes(y = LPUE, color = "LPUE", group = 1)) +
+#     geom_line(aes(y = LAND / 1000, color = "LAND", group = 1)) +
+#     scale_y_continuous(
+#       name = "LPUE",
+#       sec.axis = sec_axis(~.*1000, name = "Landings")
+#     ) +
+#     labs(
+#       title = paste("Evolution of LPUE & Landings for", title_species),
+#       x = "Year & Quarter"
+#     ) +
+#     theme_minimal() +
+#     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# 
+#   return(p)
+# }
+# # Group plots by species code
+# species_groups <- lpue_SF %>%
+#   select(starts_with("LPUE_")) %>%
+#   names() %>%
+#   strsplit("_") %>%
+#   sapply(function(x) x[2])
+# 
+# # PDF export directory (change it if you need to)
+# output_dir <- "Figures/ESP/LPUE_species_fleets/"
+# dir.create(output_dir, showWarnings = FALSE)
+# 
+# for (species in unique(species_groups)) {
+#   # Find columns corresponding to the specie
+#   species_lpue_cols <- grep(paste0("LPUE_", species, "_"), names(lpue_SF), value = TRUE)
+#   species_land_cols <- grep(paste0("LAND_", species, "_"), names(lpue_SF), value = TRUE)
+# 
+# 
+#   # Create plots next to each other
+#   species_plots <- lapply(seq_along(species_lpue_cols), function(i) {
+#     create_plot(species_lpue_cols[i], species_land_cols[i])
+#   })
+# 
+#   # Delete NULL elements (LPUEs = 0 for all the period
+#   species_plots <- species_plots[!sapply(species_plots, is.null)]
+# 
+#   if (length(species_plots) > 0) {
+#     combined_plot <- wrap_plots(species_plots, ncol = 2)
+# 
+#     # Export PDF
+#     pdf_path <- file.path(output_dir, paste0(species, ".pdf"))
+#     ggsave(pdf_path, combined_plot, width = 20, height = 12, units = "in")
+#     cat(paste0("Exported ", species, ".pdf\n"))
+#   } else {
+#     cat(paste0("No plots generated for ", species, "\n"))
+#   }
+# }
+# 
 
 
 
@@ -740,83 +740,88 @@ lpue_SFG <- do.call(rbind, lpue_list)
 lpue_SFG <- lpue_SFG[, colSums(lpue_SFG != 0) > 0]
 
 
-## Graph: LPUE's evolution plots----
-# Extract combo of unique species - fleets
-lpue_cols <- grep("LPUE_", names(lpue_SFG), value = TRUE)
-land_cols <- grep("LAND_", names(lpue_SFG), value = TRUE)
+# ## Graph: LPUE's evolution plots----
+# # Extract combo of unique species - fleets
+# lpue_cols <- grep("LPUE_", names(lpue_SFG), value = TRUE)
+# land_cols <- grep("LAND_", names(lpue_SFG), value = TRUE)
+# 
+# if (length(lpue_cols) != length(land_cols)) {
+#   stop("Le nombre de colonnes LPUE et LAND ne correspond pas.")
+# }
+# 
+# # Plot function (reste inchangé)
+# create_plot <- function(lpue_col, land_col) {
+#   plot_data <- lpue_SFG %>%
+#     select(Year, Quarter, LPUE = !!sym(lpue_col), LAND = !!sym(land_col))
+#   
+#   if (all(plot_data$LPUE == 0)) {
+#     return(NULL)
+#   }
+#   
+#   title_species <- gsub("^LPUE_|^LAND_", "", lpue_col)
+#   
+#   p <- ggplot(plot_data, aes(x = as.factor(paste(Year, Quarter, sep = "Q")))) +
+#     geom_line(aes(y = LPUE, color = "LPUE", group = 1)) +
+#     geom_line(aes(y = LAND / 1000, color = "LAND", group = 1)) +
+#     scale_y_continuous(
+#       name = "LPUE",
+#       sec.axis = sec_axis(~.*1000, name = "Landings")
+#     ) +
+#     labs(
+#       title = paste("Evolution of LPUE & Landings for", title_species),
+#       x = "Year & Quarter"
+#     ) +
+#     theme_minimal() +
+#     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#   
+#   return(p)
+# }
+# 
+# # Group plots by species code (reste inchangé)
+# species_groups <- lpue_SFG %>%
+#   select(starts_with("LPUE_")) %>%
+#   names() %>%
+#   strsplit("_") %>%
+#   sapply(function(x) x[2])
+# 
+# # PDF export directory (reste inchangé)
+# output_dir <- "Figures/ESP/LPUE_species_fleets_GSA/"
+# dir.create(output_dir, showWarnings = FALSE)
+# 
+# for (species in unique(species_groups)) {
+#   # Find columns corresponding to the specie (reste inchangé)
+#   species_lpue_cols <- grep(paste0("LPUE_", species, "_"), names(lpue_SFG), value = TRUE)
+#   species_land_cols <- grep(paste0("LAND_", species, "_"), names(lpue_SFG), value = TRUE)
+#   
+#   # Create plots (reste inchangé)
+#   species_plots <- lapply(seq_along(species_lpue_cols), function(i) {
+#     create_plot(species_lpue_cols[i], species_land_cols[i])
+#   })
+#   
+#   # Delete NULL elements (reste inchangé)
+#   species_plots <- species_plots[!sapply(species_plots, is.null)]
+#   
+#   if (length(species_plots) > 0) {
+#     # Nouvelle partie: diviser les graphiques en groupes de 12 (6x2)
+#     plot_groups <- split(species_plots, ceiling(seq_along(species_plots) / 12))
+#     
+#     # Export PDF avec plusieurs pages si nécessaire
+#     pdf_path <- file.path(output_dir, paste0(species, ".pdf"))
+#     pdf(pdf_path, width = 20, height = 12)
+#     
+#     for (group in plot_groups) {
+#       combined_plot <- wrap_plots(group, ncol = 2)
+#       print(combined_plot)
+#     }
+#     
+#     dev.off()
+#     cat(paste0("Exported ", species, ".pdf\n"))
+#   } else {
+#     cat(paste0("No plots generated for ", species, "\n"))
+#   }
+# }
 
-if (length(lpue_cols) != length(land_cols)) {
-  stop("Le nombre de colonnes LPUE et LAND ne correspond pas.")
-}
 
-# Plot function
-create_plot <- function(lpue_col, land_col) {
-  plot_data <- lpue_SFG %>%
-    select(Year, Quarter, LPUE = !!sym(lpue_col), LAND = !!sym(land_col))
-
-  # Check that LPUE >0
-  if (all(plot_data$LPUE == 0)) {
-    return(NULL)
-  }
-
-  # Get column's name without the 5 first letters
-  title_species <- gsub("^LPUE_|^LAND_", "", lpue_col)
-
-  p <- ggplot(plot_data, aes(x = as.factor(paste(Year, Quarter, sep = "Q")))) +
-    geom_line(aes(y = LPUE, color = "LPUE", group = 1)) +
-    geom_line(aes(y = LAND / 1000, color = "LAND", group = 1)) +
-    scale_y_continuous(
-      name = "LPUE",
-      sec.axis = sec_axis(~.*1000, name = "Landings")
-    ) +
-    labs(
-      title = paste("Evolution of LPUE & Landings for", title_species),
-      x = "Year & Quarter"
-    ) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-  return(p)
-}
-# Group plots by species code
-species_groups <- lpue_SFG %>%
-  select(starts_with("LPUE_")) %>%
-  names() %>%
-  strsplit("_") %>%
-  sapply(function(x) x[2])
-
-# PDF export directory (change it if you need to)
-output_dir <- "Figures/ESP/LPUE_species_fleets_GSA/"
-dir.create(output_dir, showWarnings = FALSE)
-
-for (species in unique(species_groups)) {
-  # Find columns corresponding to the specie
-  species_lpue_cols <- grep(paste0("LPUE_", species, "_"), names(lpue_SFG), value = TRUE)
-  species_land_cols <- grep(paste0("LAND_", species, "_"), names(lpue_SFG), value = TRUE)
-
-
-  # Create plots next to each other
-  species_plots <- lapply(seq_along(species_lpue_cols), function(i) {
-    create_plot(species_lpue_cols[i], species_land_cols[i])
-  })
-
-  # Delete NULL elements (LPUEs = 0 for all the period
-  species_plots <- species_plots[!sapply(species_plots, is.null)]
-
-  if (length(species_plots) > 0) {
-    combined_plot <- wrap_plots(species_plots, ncol = 2)
-
-    # Export PDF
-    pdf_path <- file.path(output_dir, paste0(species, ".pdf"))
-    ggsave(pdf_path, combined_plot, width = 20, height = 12, units = "in")
-    cat(paste0("Exported ", species, ".pdf\n"))
-  } else {
-    cat(paste0("No plots generated for ", species, "\n"))
-  }
-}
-
-#' Note : having HKE LPUE's represented across different GSA's does NOT make 
-#' sense, because the HKE stock is the same and only stock across all GSA's.
 
 
 # Compute VPUEs----
@@ -897,43 +902,43 @@ sum(is.na(vpue_df2))
 
 ### Graph: VPUE's evolutions plots----
 # Get the "unique" species from Grégoire's taxons group
-species <- unique(vpue_df$Species)
-plots <- list()
-
-# Loop to create a graph for each species
-for (sp in species) {
-  sp_df <- vpue_df[vpue_df$Species == sp, ]
-  # Compute the average VPUE for each year (between the 4 quarters)
-  sp_annual <- aggregate(vpue ~ Year, data = sp_df, FUN = mean)
-  plot <- ggplot(sp_annual, aes(x = Year, y = vpue, alpha = vpue, color = vpue)) +
-    geom_line() +
-    geom_point() +
-    scale_x_continuous(breaks = seq(min(sp_annual$Year), max(sp_annual$Year), by = 3)) +
-    scale_alpha(range = c(0.7, 1), guide = "none") +
-    scale_color_gradient2(low = "darkblue", high = "darkred", mid = "red",
-                          midpoint = mean(sp_annual$vpue),guide = "none")+
-    labs(
-      title = sp,
-      x = "Année",
-      y = "vpue") +
-    theme_minimal()+
-    theme(
-      plot.title = element_text(face = "bold", size = 10),
-      axis.title.x = element_text(size = 8),
-      axis.title.y = element_text(size = 8))
-
-  plots[[sp]] <- plot}
-
-# Combine graphs
-combined_plot <- plots[[1]]
-
-for (i in 2:length(plots)) {
-  combined_plot <- combined_plot + plots[[i]]}
-
-pdf("Figures/ESP/VPUE_species.pdf", width = 20, height = 12)
-print(combined_plot)
-dev.off()
-
+# species <- unique(vpue_df$Species)
+# plots <- list()
+# 
+# # Loop to create a graph for each species
+# for (sp in species) {
+#   sp_df <- vpue_df[vpue_df$Species == sp, ]
+#   # Compute the average VPUE for each year (between the 4 quarters)
+#   sp_annual <- aggregate(vpue ~ Year, data = sp_df, FUN = mean)
+#   plot <- ggplot(sp_annual, aes(x = Year, y = vpue, alpha = vpue, color = vpue)) +
+#     geom_line() +
+#     geom_point() +
+#     scale_x_continuous(breaks = seq(min(sp_annual$Year), max(sp_annual$Year), by = 3)) +
+#     scale_alpha(range = c(0.7, 1), guide = "none") +
+#     scale_color_gradient2(low = "darkblue", high = "darkred", mid = "red",
+#                           midpoint = mean(sp_annual$vpue),guide = "none")+
+#     labs(
+#       title = sp,
+#       x = "Année",
+#       y = "vpue") +
+#     theme_minimal()+
+#     theme(
+#       plot.title = element_text(face = "bold", size = 10),
+#       axis.title.x = element_text(size = 8),
+#       axis.title.y = element_text(size = 8))
+# 
+#   plots[[sp]] <- plot}
+# 
+# # Combine graphs
+# combined_plot <- plots[[1]]
+# 
+# for (i in 2:length(plots)) {
+#   combined_plot <- combined_plot + plots[[i]]}
+# 
+# pdf("Figures/ESP/VPUE_species.pdf", width = 20, height = 12)
+# print(combined_plot)
+# dev.off()
+# 
 
 
 
@@ -994,79 +999,79 @@ for (yr in years) {
 
 ## Graph: VPUE's evolution plots----
 # Extract combo of unique species - fleets
-vpue_cols <- grep("VPUE_", names(vpue_SF), value = TRUE)
-land_cols <- grep("LAND_", names(vpue_SF), value = TRUE)
-
-if (length(vpue_cols) != length(land_cols)) {
-  stop("Le nombre de colonnes VPUE et LAND ne correspond pas.")
-}
-
-# Plot function
-create_plot <- function(vpue_col, land_col) {
-  plot_data <- vpue_SF %>%
-    select(Year, Quarter, VPUE = !!sym(vpue_col), LAND = !!sym(land_col))
-
-  # Check that VPUE >0
-  if (all(plot_data$VPUE == 0)) {
-    return(NULL)
-  }
-
-  # Get column's name without the 5 first letters
-  title_species <- gsub("^VPUE_|^LAND_", "", vpue_col)
-
-  p <- ggplot(plot_data, aes(x = as.factor(paste(Year, Quarter, sep = "Q")))) +
-    geom_line(aes(y = VPUE, color = "VPUE", group = 1)) +
-    geom_line(aes(y = LAND / 1000, color = "LAND", group = 1)) +
-    scale_y_continuous(
-      name = "VPUE",
-      sec.axis = sec_axis(~.*1000, name = "Landings")
-    ) +
-    labs(
-      title = paste("Evolution of VPUE & Landings for", title_species),
-      x = "Year & Quarter"
-    ) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-  return(p)
-}
-# Group plots by species code
-species_groups <- vpue_SF %>%
-  select(starts_with("VPUE_")) %>%
-  names() %>%
-  strsplit("_") %>%
-  sapply(function(x) x[2])
-
-# PDF export directory (change it if you need to)
-output_dir <- "Figures/ESP/VPUE_species_fleets/"
-dir.create(output_dir, showWarnings = FALSE)
-
-for (species in unique(species_groups)) {
-  # Find columns corresponding to the specie
-  species_vpue_cols <- grep(paste0("VPUE_", species, "_"), names(vpue_SF), value = TRUE)
-  species_land_cols <- grep(paste0("LAND_", species, "_"), names(vpue_SF), value = TRUE)
-
-
-  # Create plots next to each other
-  species_plots <- lapply(seq_along(species_vpue_cols), function(i) {
-    create_plot(species_vpue_cols[i], species_land_cols[i])
-  })
-
-  # Delete NULL elements (VPUEs = 0 for all the period
-  species_plots <- species_plots[!sapply(species_plots, is.null)]
-
-  if (length(species_plots) > 0) {
-    combined_plot <- wrap_plots(species_plots, ncol = 2)
-
-    # Export PDF
-    pdf_path <- file.path(output_dir, paste0(species, ".pdf"))
-    ggsave(pdf_path, combined_plot, width = 20, height = 12, units = "in")
-    cat(paste0("Exported ", species, ".pdf\n"))
-  } else {
-    cat(paste0("No plots generated for ", species, "\n"))
-  }
-}
-
+# vpue_cols <- grep("VPUE_", names(vpue_SF), value = TRUE)
+# land_cols <- grep("LAND_", names(vpue_SF), value = TRUE)
+# 
+# if (length(vpue_cols) != length(land_cols)) {
+#   stop("Le nombre de colonnes VPUE et LAND ne correspond pas.")
+# }
+# 
+# # Plot function
+# create_plot <- function(vpue_col, land_col) {
+#   plot_data <- vpue_SF %>%
+#     select(Year, Quarter, VPUE = !!sym(vpue_col), LAND = !!sym(land_col))
+# 
+#   # Check that VPUE >0
+#   if (all(plot_data$VPUE == 0)) {
+#     return(NULL)
+#   }
+# 
+#   # Get column's name without the 5 first letters
+#   title_species <- gsub("^VPUE_|^LAND_", "", vpue_col)
+# 
+#   p <- ggplot(plot_data, aes(x = as.factor(paste(Year, Quarter, sep = "Q")))) +
+#     geom_line(aes(y = VPUE, color = "VPUE", group = 1)) +
+#     geom_line(aes(y = LAND / 1000, color = "LAND", group = 1)) +
+#     scale_y_continuous(
+#       name = "VPUE",
+#       sec.axis = sec_axis(~.*1000, name = "Landings")
+#     ) +
+#     labs(
+#       title = paste("Evolution of VPUE & Landings for", title_species),
+#       x = "Year & Quarter"
+#     ) +
+#     theme_minimal() +
+#     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# 
+#   return(p)
+# }
+# # Group plots by species code
+# species_groups <- vpue_SF %>%
+#   select(starts_with("VPUE_")) %>%
+#   names() %>%
+#   strsplit("_") %>%
+#   sapply(function(x) x[2])
+# 
+# # PDF export directory (change it if you need to)
+# output_dir <- "Figures/ESP/VPUE_species_fleets/"
+# dir.create(output_dir, showWarnings = FALSE)
+# 
+# for (species in unique(species_groups)) {
+#   # Find columns corresponding to the specie
+#   species_vpue_cols <- grep(paste0("VPUE_", species, "_"), names(vpue_SF), value = TRUE)
+#   species_land_cols <- grep(paste0("LAND_", species, "_"), names(vpue_SF), value = TRUE)
+# 
+# 
+#   # Create plots next to each other
+#   species_plots <- lapply(seq_along(species_vpue_cols), function(i) {
+#     create_plot(species_vpue_cols[i], species_land_cols[i])
+#   })
+# 
+#   # Delete NULL elements (VPUEs = 0 for all the period
+#   species_plots <- species_plots[!sapply(species_plots, is.null)]
+# 
+#   if (length(species_plots) > 0) {
+#     combined_plot <- wrap_plots(species_plots, ncol = 2)
+# 
+#     # Export PDF
+#     pdf_path <- file.path(output_dir, paste0(species, ".pdf"))
+#     ggsave(pdf_path, combined_plot, width = 20, height = 12, units = "in")
+#     cat(paste0("Exported ", species, ".pdf\n"))
+#   } else {
+#     cat(paste0("No plots generated for ", species, "\n"))
+#   }
+# }
+# 
 
 
 
@@ -1154,7 +1159,7 @@ vpue_SFG <- do.call(rbind, vpue_list)
 vpue_SFG <- vpue_SFG[, colSums(vpue_SFG != 0) > 0]
 
 
-## Graph: VPUE's evolution plots----
+# Graph: VPUE's evolution plots----
 # Extract combo of unique species - fleets
 vpue_cols <- grep("VPUE_", names(vpue_SFG), value = TRUE)
 land_cols <- grep("LAND_", names(vpue_SFG), value = TRUE)
@@ -1163,19 +1168,19 @@ if (length(vpue_cols) != length(land_cols)) {
   stop("Le nombre de colonnes VPUE et LAND ne correspond pas.")
 }
 
-# Plot function
+# Plot function (reste inchangé)
 create_plot <- function(vpue_col, land_col) {
   plot_data <- vpue_SFG %>%
     select(Year, Quarter, VPUE = !!sym(vpue_col), LAND = !!sym(land_col))
-
+  
   # Check that VPUE >0
   if (all(plot_data$VPUE == 0)) {
     return(NULL)
   }
-
+  
   # Get column's name without the 5 first letters
   title_species <- gsub("^VPUE_|^LAND_", "", vpue_col)
-
+  
   p <- ggplot(plot_data, aes(x = as.factor(paste(Year, Quarter, sep = "Q")))) +
     geom_line(aes(y = VPUE, color = "VPUE", group = 1)) +
     geom_line(aes(y = LAND / 1000, color = "LAND", group = 1)) +
@@ -1189,10 +1194,11 @@ create_plot <- function(vpue_col, land_col) {
     ) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
+  
   return(p)
 }
-# Group plots by species code
+
+# Group plots by species code (reste inchangé)
 species_groups <- vpue_SFG %>%
   select(starts_with("VPUE_")) %>%
   names() %>%
@@ -1207,22 +1213,29 @@ for (species in unique(species_groups)) {
   # Find columns corresponding to the specie
   species_vpue_cols <- grep(paste0("VPUE_", species, "_"), names(vpue_SFG), value = TRUE)
   species_land_cols <- grep(paste0("LAND_", species, "_"), names(vpue_SFG), value = TRUE)
-
-
+  
   # Create plots next to each other
   species_plots <- lapply(seq_along(species_vpue_cols), function(i) {
     create_plot(species_vpue_cols[i], species_land_cols[i])
   })
-
-  # Delete NULL elements (VPUEs = 0 for all the period
+  
+  # Delete NULL elements (VPUEs = 0 for all the period)
   species_plots <- species_plots[!sapply(species_plots, is.null)]
-
+  
   if (length(species_plots) > 0) {
-    combined_plot <- wrap_plots(species_plots, ncol = 2)
-
-    # Export PDF
+    # Nouvelle partie: diviser les graphiques en groupes de 12 (6x2)
+    plot_groups <- split(species_plots, ceiling(seq_along(species_plots) / 12))
+    
+    # Export PDF avec plusieurs pages si nécessaire
     pdf_path <- file.path(output_dir, paste0(species, ".pdf"))
-    ggsave(pdf_path, combined_plot, width = 20, height = 12, units = "in")
+    pdf(pdf_path, width = 20, height = 12)
+    
+    for (group in plot_groups) {
+      combined_plot <- wrap_plots(group, ncol = 2)
+      print(combined_plot)
+    }
+    
+    dev.off()
     cat(paste0("Exported ", species, ".pdf\n"))
   } else {
     cat(paste0("No plots generated for ", species, "\n"))
@@ -1271,71 +1284,71 @@ for (yr in years) {
 value_landings_df$YearQuarter <- factor(paste(value_landings_df$Year, value_landings_df$Quarter, sep = "Q"))
 
 # Graph: Plot function
-create_plot <- function(data, species) {
-  # Find min and max for each variable
-  value_max <- max(data[[paste0("VALUE_", species)]], na.rm = TRUE)
-  landings_max <- max(data[[paste0("LANDINGS_", species)]], na.rm = TRUE)
-
-  # Compute scale factor
-  scale_factor <- landings_max / value_max
-
-  p <- ggplot(data, aes(x = YearQuarter)) +
-    geom_line(aes(y = data[[paste0("VALUE_", species)]], color = "Value", group = 1.5)) +
-    geom_line(aes(y = data[[paste0("LANDINGS_", species)]] / scale_factor, color = "Landings", group = 1)) +
-    scale_x_discrete(
-      breaks = paste(c(2013, 2017, 2022), "Q1", sep = ""),
-      labels = c("2013", "2017", "2022")
-    ) +
-    scale_y_continuous(
-      name = "Value",
-      sec.axis = sec_axis(~ . * scale_factor, name = "Landings")
-    ) +
-    labs(
-      title = paste(species)
-    ) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(hjust = 1))
-
-  return(p)
-}
-
-# Generate plots for each species and store them in a list
-plots <- list()
-for (sp in species) {
-  species_plot <- create_plot(value_landings_df, sp)
-  plots[[sp]] <- species_plot
-}
-
-# Nombre de graphiques par page
-plots_per_page <- 30
-
-# Combiner les graphiques dans un seul fichier PDF avec plusieurs pages
-num_plots <- length(plots)
-num_pages <- ceiling(num_plots / plots_per_page)
-
-output_file <- "Figures/ESP/Value_Landings_species_combined.pdf"
-pdf(output_file, width = 20, height = 12)
-
-for (page in 1:num_pages) {
-  start_index <- (page - 1) * plots_per_page + 1
-  end_index <- min(page * plots_per_page, num_plots)
-  plot_subset <- plots[start_index:end_index]
-
-  ncol <- 4 # Nombre de colonnes dans le graphique combiné (ajustez selon vos besoins)
-  nrow <- ceiling(length(plot_subset) / ncol)
-
-  grid.arrange(grobs = plot_subset, ncol = ncol, nrow = nrow)
-
-  # Ajouter une nouvelle page seulement s'il y a d'autres graphiques à afficher
-  if (end_index < num_plots) {
-    grid.newpage()
-  }
-}
-
-dev.off()
-
-cat(paste0("Exported combined plots to ", output_file, "\n"))
-
+# create_plot <- function(data, species) {
+#   # Find min and max for each variable
+#   value_max <- max(data[[paste0("VALUE_", species)]], na.rm = TRUE)
+#   landings_max <- max(data[[paste0("LANDINGS_", species)]], na.rm = TRUE)
+# 
+#   # Compute scale factor
+#   scale_factor <- landings_max / value_max
+# 
+#   p <- ggplot(data, aes(x = YearQuarter)) +
+#     geom_line(aes(y = data[[paste0("VALUE_", species)]], color = "Value", group = 1.5)) +
+#     geom_line(aes(y = data[[paste0("LANDINGS_", species)]] / scale_factor, color = "Landings", group = 1)) +
+#     scale_x_discrete(
+#       breaks = paste(c(2013, 2017, 2022), "Q1", sep = ""),
+#       labels = c("2013", "2017", "2022")
+#     ) +
+#     scale_y_continuous(
+#       name = "Value",
+#       sec.axis = sec_axis(~ . * scale_factor, name = "Landings")
+#     ) +
+#     labs(
+#       title = paste(species)
+#     ) +
+#     theme_minimal() +
+#     theme(axis.text.x = element_text(hjust = 1))
+# 
+#   return(p)
+# }
+# 
+# # Generate plots for each species and store them in a list
+# plots <- list()
+# for (sp in species) {
+#   species_plot <- create_plot(value_landings_df, sp)
+#   plots[[sp]] <- species_plot
+# }
+# 
+# # Number of plots per page
+# plots_per_page <- 30
+# 
+# # Combine graphics in a single PDF file with multiple pages
+# num_plots <- length(plots)
+# num_pages <- ceiling(num_plots / plots_per_page)
+# 
+# output_file <- "Figures/ESP/Value_Landings_species_combined.pdf"
+# pdf(output_file, width = 20, height = 12)
+# 
+# for (page in 1:num_pages) {
+#   start_index <- (page - 1) * plots_per_page + 1
+#   end_index <- min(page * plots_per_page, num_plots)
+#   plot_subset <- plots[start_index:end_index]
+# 
+#   ncol <- 4 # Number of columns in the combined graph (adjust as required)
+#   nrow <- ceiling(length(plot_subset) / ncol)
+# 
+#   grid.arrange(grobs = plot_subset, ncol = ncol, nrow = nrow)
+# 
+#   # Add a new page only if there are other graphics to display
+#   if (end_index < num_plots) {
+#     grid.newpage()
+#   }
+# }
+# 
+# dev.off()
+# 
+# cat(paste0("Exported combined plots to ", output_file, "\n"))
+# 
 
 
 
@@ -1366,7 +1379,7 @@ value_subset <- value[, cols, drop = FALSE]
 
 corr_results <- list()
 
-# Calculer les corrélations pour chaque espèce
+# Compute correlations for each species
 for (col in cols) {
   land_col <- col
   value_col <- col
@@ -1379,7 +1392,7 @@ for (col in cols) {
   }
 }
 
-# Transformer la liste de résultats en dataframe
+# Transform list and results in a data frame
 variables <- names(corr_results)
 cor_values <- sapply(corr_results, function(x) if (is.list(x)) x$estimate else NA)
 p_values <- sapply(corr_results, function(x) if (is.list(x)) x$p.value else NA)
@@ -1390,7 +1403,7 @@ corr_df <- tibble(
   P_value = unlist(p_values)
 )
 
-# Filtrer les corrélations significatives (p-value < 0.05)
+# Filter correlations (p-value < 0.05)
 significant_corr_df <- corr_df %>%
   filter(P_value < 0.05)
 
@@ -1399,35 +1412,35 @@ significant_corr_df <- corr_df %>%
 # Correlations btw value (€/kg) & landings (kg) per species and PER FLEETS----
 #' We want to do the same as previously but per specie-fleet duo.
 
-# Liste des flottes
+# List of fleets
 fleets <- unique(landingsV2$FleetIAM)
 
-# Initialiser une liste pour stocker les noms des dataframes créés
+# Initialize an empty list
 df_names <- list()
 
-# Boucle sur chaque flotte
+# Loop for each fleets
 for (fleet in fleets) {
-  # Filtrer les données pour la flotte actuelle
+  # Filter data for the fleet
   fleet_data <- landingsV2 %>% filter(FleetIAM == fleet)
   
-  # Créer les dataframes 'land' et 'value' pour la flotte actuelle
+  # Create "land" and "value" subset
   land <- fleet_data[, c("YEAR", "quarter", "X3A_CODE", "totwghtlandg")]
   land <- dcast(land, YEAR + quarter ~ X3A_CODE, value.var = "totwghtlandg", fun.aggregate = sum)
   
   value <- fleet_data[, c("YEAR", "quarter", "X3A_CODE", "value")]
   value <- dcast(value, YEAR + quarter ~ X3A_CODE, value.var = "value", fun.aggregate = sum)
   
-  # Récupérer les noms de colonnes (excluant 'YEAR' et 'quarter')
+  # Exclude "year" and "quarter"
   cols <- names(land[,3:ncol(land)])
   
-  # Sous-ensemble des dataframes
+  # Data frame subset
   land_subset <- land[, cols, drop = FALSE]
   value_subset <- value[, cols, drop = FALSE]
   
-  # Initialiser une liste pour stocker les résultats de corrélation pour cette flotte
+  # Create an empty list
   corr_results <- list()
   
-  # Calculer les corrélations pour chaque espèce
+  # Compute correlations for each scpecies
   for (col in cols) {
     land_col <- col
     value_col <- col
@@ -1440,7 +1453,7 @@ for (fleet in fleets) {
     }
   }
   
-  # Transformer la liste de résultats en dataframe
+  # Transform list in dataframe
   variables <- names(corr_results)
   cor_values <- sapply(corr_results, function(x) if (is.list(x)) x$estimate else NA)
   p_values <- sapply(corr_results, function(x) if (is.list(x)) x$p.value else NA)
@@ -1451,17 +1464,14 @@ for (fleet in fleets) {
     P_value = unlist(p_values)
   )
   
-  # Filtrer les corrélations significatives (p-value < 0.05)
+  # Filter correlations with p-value < 0.05
   significant_corr_df <- corr_df %>%
     filter(P_value < 0.05)
   
-  # Créer un nom pour le dataframe de la flotte actuelle
   df_name <- paste0("corr_df_q_", fleet)
   
-  # Assigner le dataframe avec le nom créé dynamiquement
   assign(df_name, significant_corr_df)
   
-  # Ajouter le nom du dataframe à la liste des noms
   df_names[[fleet]] <- df_name
 }
 
@@ -1669,21 +1679,21 @@ top_10_species <- top_10_species %>%
 
 # Graph: plot the 10 most important species, per fleets, with 3 different periods
 
-output_file <- "Figures/ESP/prop_species_fleet.pdf"
-pdf(output_file, width = 10, height = 10)
-
-ggplot(top_10_species, aes(x = reorder(X3A_CODE, proportion), y = proportion, fill = period)) +
-  geom_bar(stat = "identity", position = "dodge", color = "black", size = 0.2) +
-  facet_wrap(~FleetIAM, scales = "free_x") +
-  labs(
-    title = "Top 10 species per fleet per period",
-    x = "Species",
-    y = "Proportion (%)",
-    fill = "Periods"
-  ) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-
-dev.off()
+# output_file <- "Figures/ESP/prop_species_fleet.pdf"
+# pdf(output_file, width = 10, height = 10)
+# 
+# ggplot(top_10_species, aes(x = reorder(X3A_CODE, proportion), y = proportion, fill = period)) +
+#   geom_bar(stat = "identity", position = "dodge", color = "black", size = 0.2) +
+#   facet_wrap(~FleetIAM, scales = "free_x") +
+#   labs(
+#     title = "Top 10 species per fleet per period",
+#     x = "Species",
+#     y = "Proportion (%)",
+#     fill = "Periods"
+#   ) +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+# 
+# dev.off()
 
 
 # Sankey's Diagram----
@@ -1723,49 +1733,49 @@ sankey <- landings %>%
 
 
 # Graph: From Fleets to Species
-output_file <- "Figures/ESP/sankey_depend.pdf"
-pdf(output_file, width = 12, height = 10)
-
-ggplot(data = sankey,
-       aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-  geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
-                curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-  geom_stratum()+ # Categories blocks
-  geom_text(stat = "stratum",
-            aes(label = after_stat(stratum))) + # Categories block's names
-  ggtitle("6 most important fleets and 10 most important species, both in term of landings (kg)",
-          subtitle = "Fleets dependencies to each species")+
-  theme_void() +
-  theme(
-    plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-    plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-  )+
-  guides(fill=FALSE) # No Legend
-
-dev.off()
+# output_file <- "Figures/ESP/sankey_depend.pdf"
+# pdf(output_file, width = 12, height = 10)
+# 
+# ggplot(data = sankey,
+#        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+#   geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
+#                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+#   geom_stratum()+ # Categories blocks
+#   geom_text(stat = "stratum",
+#             aes(label = after_stat(stratum))) + # Categories block's names
+#   ggtitle("6 most important fleets and 10 most important species, both in term of landings (kg)",
+#           subtitle = "Fleets dependencies to each species")+
+#   theme_void() +
+#   theme(
+#     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+#     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+#   )+
+#   guides(fill=FALSE) # No Legend
+# 
+# dev.off()
 
 
 # Graph:From Species to Fleets
-output_file <- "Figures/ESP/sankey_contrib.pdf"
-pdf(output_file, width = 12, height = 10)
-
-ggplot(data = sankey,
-       aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-  geom_alluvium(aes(fill = X3A_CODE),# Link goes from Species to Fleets
-                curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-  geom_stratum()+ # Categories blocks
-  geom_text(stat = "stratum",
-            aes(label = after_stat(stratum))) + # Categories block's names
-  ggtitle("6 most important fleets and 10 most important species, both in term of landings (kg)",
-          subtitle = "Contribution of each species to landings of each fleets")+
-  theme_void() +
-  theme(
-    plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-    plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-  )+
-  guides(fill=FALSE) # No Legend
-
-dev.off()
+# output_file <- "Figures/ESP/sankey_contrib.pdf"
+# pdf(output_file, width = 12, height = 10)
+# 
+# ggplot(data = sankey,
+#        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+#   geom_alluvium(aes(fill = X3A_CODE),# Link goes from Species to Fleets
+#                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+#   geom_stratum()+ # Categories blocks
+#   geom_text(stat = "stratum",
+#             aes(label = after_stat(stratum))) + # Categories block's names
+#   ggtitle("6 most important fleets and 10 most important species, both in term of landings (kg)",
+#           subtitle = "Contribution of each species to landings of each fleets")+
+#   theme_void() +
+#   theme(
+#     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+#     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+#   )+
+#   guides(fill=FALSE) # No Legend
+# 
+# dev.off()
 
 
 
@@ -1784,15 +1794,15 @@ spgsa <- landings %>%
   summarise(totwghtlandg = sum(totwghtlandg))
 
 # Graph
-spgsa_plot <- ggplot(spgsa, aes(x = SUB_REGION, y = totwghtlandg, fill = X3A_CODE)) +
-  geom_bar(position = "fill", stat="identity") +
-  scale_y_continuous(labels = scales::percent) +
-  labs(x = "Sub-Regions", y = "Proportion", fill = "Species Code")+
-  ggtitle("Proportion of Landings")+
-  theme_light() +
-  theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))+
-  theme(axis.text.x = element_text(hjust = 1, vjust = 1, face = "bold"),
-        legend.position = "right")
+# spgsa_plot <- ggplot(spgsa, aes(x = SUB_REGION, y = totwghtlandg, fill = X3A_CODE)) +
+#   geom_bar(position = "fill", stat="identity") +
+#   scale_y_continuous(labels = scales::percent) +
+#   labs(x = "Sub-Regions", y = "Proportion", fill = "Species Code")+
+#   ggtitle("Proportion of Landings")+
+#   theme_light() +
+#   theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))+
+#   theme(axis.text.x = element_text(hjust = 1, vjust = 1, face = "bold"),
+#         legend.position = "right")
 
 
 
@@ -1805,24 +1815,24 @@ flgsa <- landings %>%
   summarise(totwghtlandg = sum(totwghtlandg))
 
 # Graph
-flgsa_plot <- ggplot(flgsa, aes(x = SUB_REGION, y = totwghtlandg, fill = FleetIAM)) +
-  geom_bar(position = "fill", stat="identity") +
-  scale_y_continuous(labels = scales::percent) +
-  labs(x = "Sub-Regions", y = "Proportion", fill = "Fleets Code")+
-  ggtitle("Proportion of Landings")+
-  theme_light() +
-  theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))+
-  theme(axis.text.x = element_text(hjust = 1, vjust = 1, face = "bold"),
-        legend.position = "right")
+# flgsa_plot <- ggplot(flgsa, aes(x = SUB_REGION, y = totwghtlandg, fill = FleetIAM)) +
+#   geom_bar(position = "fill", stat="identity") +
+#   scale_y_continuous(labels = scales::percent) +
+#   labs(x = "Sub-Regions", y = "Proportion", fill = "Fleets Code")+
+#   ggtitle("Proportion of Landings")+
+#   theme_light() +
+#   theme(plot.title = element_text(hjust = 0.5, size = 15, face = "bold"))+
+#   theme(axis.text.x = element_text(hjust = 1, vjust = 1, face = "bold"),
+#         legend.position = "right")
 
 
 # Graph: Export plots
-combined_plot <- plot_grid(spgsa_plot, flgsa_plot, ncol = 1, align = "v")
-output_path <- "Figures/ESP/"
-output_file <- file.path(output_path, "proportions.pdf")
-cairo_pdf(output_file, width = 8, height = 12)
-print(combined_plot)
-dev.off()
+# combined_plot <- plot_grid(spgsa_plot, flgsa_plot, ncol = 1, align = "v")
+# output_path <- "Figures/ESP/"
+# output_file <- file.path(output_path, "proportions.pdf")
+# cairo_pdf(output_file, width = 8, height = 12)
+# print(combined_plot)
+# dev.off()
 
 
 
@@ -1835,33 +1845,37 @@ waff_df <- landings %>%
   select(YEAR, FleetIAM, totwghtlandg)%>%
   group_by(YEAR,FleetIAM) %>%
   summarise(totwghtlandg = sum(totwghtlandg)) %>%
-  #' We have to divide by 10 because there is one square per value and we have
+  #' We have to divide because there is one square per value and we have
   #' thousands of values
-  mutate(totwghtlandg = totwghtlandg / 14)
+  mutate(totwghtlandg = totwghtlandg / 65)
 
+mean(waff_df$totwghtlandg) # 103
 
 # Graph
-output_file <- "Figures/ESP/waffle_fleets.pdf"
-pdf(output_file, width = 12, height = 10)
-
-ggplot(waff_df, aes(fill = FleetIAM, values = totwghtlandg)) +
-  geom_waffle(color = "white", size = .25, n_rows = 10, flip = TRUE) +
-  facet_wrap(~YEAR, nrow = 1, strip.position = "bottom") +
-  scale_x_discrete() + 
-  scale_y_continuous(labels = function(x) x * 10, # make this multiplyer the same as n_rows
-                     expand = c(0,0))+
-  MetBrewer::scale_fill_met_d("Hiroshige", direction=1)+
-  coord_equal()+
-  labs(title = "Proportions of french fleets in terms of landings (in kg)",
-       subtitle = "during the 2013-2022 period")+
-  theme_minimal()+
-  theme(
-    plot.title = element_text(size = 13, face = "bold"),
-    plot.background = element_rect(color="white", fill="white"),
-    plot.margin = margin(20, 40, 20, 40)
-  )
-
-dev.off()
+# output_file <- "Figures/ESP/waffle_fleets.pdf"
+# pdf(output_file, width = 12, height = 10)
+# 
+# ggplot(waff_df, aes(fill = FleetIAM, values = totwghtlandg)) +
+#   geom_waffle(color = "white", size = .45, n_rows = 10, flip = TRUE) +
+#   facet_wrap(~YEAR, nrow = 1, strip.position = "bottom") +
+#   scale_x_discrete() +
+#   scale_y_continuous(
+#     labels = function(x) x * 10, # make this multiplier the same as n_rows
+#     expand = c(0, 0)) +
+#   MetBrewer::scale_fill_met_d("Hiroshige", direction = 1) +
+#   coord_equal() +
+#   labs(
+#     title = "Proportions of french fleets in terms of landings (in kg)",
+#     subtitle = "during the 2013-2022 period"
+#   ) +
+#   theme_minimal() +
+#   theme(
+#     plot.title = element_text(size = 13, face = "bold"),
+#     plot.background = element_rect(color = "white", fill = "white"),
+#     plot.margin = margin(20, 40, 20, 40)
+#   )
+# 
+# dev.off()
 
 
 
@@ -1873,30 +1887,32 @@ waff_df2 <- landings %>%
   summarise(totwghtlandg = sum(totwghtlandg)) %>%
   #' We have to divide by 10 because there is one square per value and we have
   #' thousands of values
-  mutate(totwghtlandg = totwghtlandg / 14)
+  mutate(totwghtlandg = totwghtlandg / 55)
 
-mean(waff_df2$totwghtlandg)
+mean(waff_df2$totwghtlandg) # 102
 
 
 # Graph
-output_file <- "Figures/ESP/waffle_species.pdf"
-pdf(output_file, width = 12, height = 10)
-
-ggplot(waff_df2, aes(fill = X3A_CODE, values = totwghtlandg,alpha = 1)) +
-  geom_waffle(color = "white", size = .25, n_rows = 10, flip = TRUE) +
-  facet_wrap(~YEAR, nrow = 1, strip.position = "bottom") +
-  scale_x_discrete() + 
-  scale_y_continuous(labels = function(x) x * 10, # make this multiplyer the same as n_rows
-                     expand = c(0,0))+
-  coord_equal()+
-  labs(title = "Proportions of 10 most important Species in terms of landings (in kg)",
-       subtitle = "during the 2013-2022 period")+
-  theme_minimal()+
-  theme(
-    plot.title = element_text(size = 13, face = "bold"),
-    plot.background = element_rect(color="white", fill="white"),
-    plot.margin = margin(20, 40, 20, 40)
-  )
-
-dev.off()
+# output_file <- "Figures/ESP/waffle_species.pdf"
+# pdf(output_file, width = 12, height = 10)
+# 
+# ggplot(waff_df2, aes(fill = X3A_CODE, values = totwghtlandg,alpha = 1)) +
+#   geom_waffle(color = "white", size = .25, n_rows = 10, flip = TRUE) +
+#   facet_wrap(~YEAR, nrow = 1, strip.position = "bottom") +
+#   scale_x_discrete() +
+#   scale_y_continuous(labels = function(x) x * 10, # make this multiplyer the same as n_rows
+#                      expand = c(0,0),
+#                      limits = c(0,170)
+#                      )+
+#   coord_equal()+
+#   labs(title = "Proportions of 10 most important Species in terms of landings (in kg)",
+#        subtitle = "during the 2013-2022 period")+
+#   theme_minimal()+
+#   theme(
+#     plot.title = element_text(size = 13, face = "bold"),
+#     plot.background = element_rect(color="white", fill="white"),
+#     plot.margin = margin(20, 40, 20, 40)
+#   )
+# 
+# dev.off()
 

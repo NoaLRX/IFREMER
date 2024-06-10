@@ -1840,29 +1840,30 @@ waff_df <- landings %>%
   #' thousands of values
   mutate(totwghtlandg = totwghtlandg / 14)
 
+mean(waff_df$totwghtlandg)
 
 # Graph
-output_file <- "Figures/FRA/waffle_fleets.pdf"
-pdf(output_file, width = 12, height = 10)
-
-ggplot(waff_df, aes(fill = FleetIAM, values = totwghtlandg)) +
-  geom_waffle(color = "white", size = .25, n_rows = 10, flip = TRUE) +
-  facet_wrap(~YEAR, nrow = 1, strip.position = "bottom") +
-  scale_x_discrete() + 
-  scale_y_continuous(labels = function(x) x * 10, # make this multiplyer the same as n_rows
-                     expand = c(0,0))+
-  MetBrewer::scale_fill_met_d("Hiroshige", direction=1)+
-  coord_equal()+
-  labs(title = "Proportions of french fleets in terms of landings (in kg)",
-       subtitle = "during the 2013-2022 period")+
-  theme_minimal()+
-  theme(
-    plot.title = element_text(size = 13, face = "bold"),
-    plot.background = element_rect(color="white", fill="white"),
-    plot.margin = margin(20, 40, 20, 40)
-  )
-
-dev.off()
+# output_file <- "Figures/FRA/waffle_fleets.pdf"
+# pdf(output_file, width = 12, height = 10)
+# 
+# ggplot(waff_df, aes(fill = FleetIAM, values = totwghtlandg)) +
+#   geom_waffle(color = "white", size = .25, n_rows = 10, flip = TRUE) +
+#   facet_wrap(~YEAR, nrow = 1, strip.position = "bottom") +
+#   scale_x_discrete() + 
+#   scale_y_continuous(labels = function(x) x * 10, # make this multiplyer the same as n_rows
+#                      expand = c(0,0))+
+#   MetBrewer::scale_fill_met_d("Hiroshige", direction=1)+
+#   coord_equal()+
+#   labs(title = "Proportions of french fleets in terms of landings (in kg)",
+#        subtitle = "during the 2013-2022 period")+
+#   theme_minimal()+
+#   theme(
+#     plot.title = element_text(size = 13, face = "bold"),
+#     plot.background = element_rect(color="white", fill="white"),
+#     plot.margin = margin(20, 40, 20, 40)
+#   )
+# 
+# dev.off()
 
 
 
@@ -1880,24 +1881,24 @@ mean(waff_df2$totwghtlandg)
 
 
 # Graph
-output_file <- "Figures/FRA/waffle_species.pdf"
-pdf(output_file, width = 12, height = 10)
-
-ggplot(waff_df2, aes(fill = X3A_CODE, values = totwghtlandg,alpha = 1)) +
-  geom_waffle(color = "white", size = .25, n_rows = 10, flip = TRUE) +
-  facet_wrap(~YEAR, nrow = 1, strip.position = "bottom") +
-  scale_x_discrete() + 
-  scale_y_continuous(labels = function(x) x * 10, # make this multiplyer the same as n_rows
-                     expand = c(0,0))+
-  coord_equal()+
-  labs(title = "Proportions of 10 most important Species in terms of landings (in kg)",
-       subtitle = "during the 2013-2022 period")+
-  theme_minimal()+
-  theme(
-    plot.title = element_text(size = 13, face = "bold"),
-    plot.background = element_rect(color="white", fill="white"),
-    plot.margin = margin(20, 40, 20, 40)
-  )
-
-dev.off()
+# output_file <- "Figures/FRA/waffle_species.pdf"
+# pdf(output_file, width = 12, height = 10)
+# 
+# ggplot(waff_df2, aes(fill = X3A_CODE, values = totwghtlandg,alpha = 1)) +
+#   geom_waffle(color = "white", size = .25, n_rows = 10, flip = TRUE) +
+#   facet_wrap(~YEAR, nrow = 1, strip.position = "bottom") +
+#   scale_x_discrete() + 
+#   scale_y_continuous(labels = function(x) x * 10, # make this multiplyer the same as n_rows
+#                      expand = c(0,0))+
+#   coord_equal()+
+#   labs(title = "Proportions of 10 most important Species in terms of landings (in kg)",
+#        subtitle = "during the 2013-2022 period")+
+#   theme_minimal()+
+#   theme(
+#     plot.title = element_text(size = 13, face = "bold"),
+#     plot.background = element_rect(color="white", fill="white"),
+#     plot.margin = margin(20, 40, 20, 40)
+#   )
+# 
+# dev.off()
 
