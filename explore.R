@@ -77,7 +77,7 @@ for (col_name in names(ts_list)) {
 #' and MUT6 because the data is really poor, but this is NOT normal for ANE.
 #' We have to try a different method for this variable.
 
-tso(ts_ANE) # No suitable ARIMA model found
+#tso(ts_ANE) # No suitable ARIMA model found
 
 # Let's try the X13-ARIMA-SEATS method
 myregx13 <- regarima_x13(ts_ANE, spec ="RG5c")
@@ -88,8 +88,15 @@ ts_ANE_adj <- ts(data = adjseries, start=c(2013,01),frequency=4)
 # Now ts_ANE is adjusted with the X13-ARIMA-SEATS method
 
 # Let's get rid of the non-corrected time series
+
+# From the dataframe:
 land_w <- land_w %>% 
   select(-NEP5, -NEP6, -MUT6)
+
+# From the list:
+ts_list <- ts_list[!(names(ts_list) %in% c("NEP5", "NEP6", "MUT6"))]
+
+  
 
 
 
@@ -99,7 +106,7 @@ seasonal_combined_test <- c()
 seasonal_seasdum <- c()
 
 for (col_name in names(ts_list)) {
-  ts_name <- paste0("ts_", col_name)  # Name of adjusted time series
+  ts_name <- paste0("ts_", col_name, "_adj")  # Name of adjusted time series
   ts_data <- get(ts_name)  # Retrieve data from the adjusted time series
   
   # Apply the combined_test() test to the adjusted time series
@@ -131,10 +138,10 @@ for (col_name in names(ts_list)) {
 
 # Display lists of series with seasonality
 print(seasonal_combined_test)
-length(seasonal_combined_test) # 30
+length(seasonal_combined_test) # 31
 
 print(seasonal_seasdum)
-length(seasonal_seasdum) #39
+length(seasonal_seasdum) #38
 
 
 
@@ -148,7 +155,7 @@ only_combined_test
 only_seasdum
 both_tests
 
-
+# Let's correct the seasonality for the series that are detected by both tests
 
 
 # Seasonality correction with STL for series in both_tests
@@ -200,10 +207,13 @@ print(seasonal_combined_test_after)
 cat(bold("\nSeries still showing seasonality according to seasdum after correction:\n"))
 print(seasonal_seasdum_after)
 
-# It 
+# It seems that "ts_ANE_adj" "ts_JLX_adj" "ts_OCT_adj" "ts_PEN_adj" "ts_PIL_adj",
+# are is still showing seasonality according to seasdum after correction.
 
-for (x in seasonal_combined_test_after){
-  cat(bold(underline("Test results for the", x,"\n")))
+
+# Let's check with different tests on this variable:
+for (x in seasonal_combined_test_after) {
+  cat(bold(underline("Test results for the", x, "\n")))
   print(fried(get(x)))
   cat("\n")
   print(kw(get(x)))
@@ -211,43 +221,68 @@ for (x in seasonal_combined_test_after){
   print(qs(get(x)))
   cat("\n")
   print(seasdum(get(x)))
-  cat("\n")  
+  cat("\n")
   cat("\n")
 }
 
+# According to the tests, most of them show no seasonality except the QS test.
 
 
 # Stationarity----
 for (i in names(ts_list)) {
-  ts_name <- paste0("ts_", i)  # Name of the TS
+  ts_name <- paste0("ts_", i, "_adj")  # Name of the TS
   adf_result <- adf.test(get(ts_name))  # Apply ADF test for stationnarity
   adf_result
-  if (adf_result$p.value > 0.05) {  # Check if P-Value > 0.05
-    assign(ts_name, diff(get(ts_name)))  # Differentiate between time series
+  # Check if P-Value > 0.05
+  if (adf_result$p.value > 0.05) {
+    # Apply a difference to the time series if it is not stationary
+    assign(ts_name, diff(get(ts_name))) 
     print(paste("The TS", ts_name, "has been differentiated"))
+  }
+  else {
+    print(paste("The TS", ts_name, "is stationary"))
   }
 }
 
+# Differenciate a second time if necessary
 for (i in names(ts_list)) {
-  ts_name <- paste0("ts_", i)  # Name of the TS
+  ts_name <- paste0("ts_", i, "_adj")  # Name of the TS
   adf_result <- adf.test(get(ts_name))  # Apply ADF test for stationnarity
   adf_result
-  if (adf_result$p.value > 0.05) {  # Check if P-Value > 0.05
+  # Check if P-Value > 0.05
+  if (adf_result$p.value > 0.05) {
+    # Apply a difference to the time series if it is not stationary
+    assign(ts_name, diff(get(ts_name))) 
+    print(paste("The TS", ts_name, "has been differentiated a second time"))
+  }
+}
+
+
+for (i in names(ts_list)) {
+  ts_name <- paste0("ts_", i, "_adj")  # Name of the TS
+  adf_result <- adf.test(get(ts_name))  # Apply ADF test for stationnarity
+  adf_result
+  if (adf_result$p.value > 0.05) {
+    # Check if P-Value > 0.05
     print(paste("La série", ts_name, "is not stationary"))
   }
 }
 
+# All the time series are now stationary, let's adjust the other time series
+# so that they have the same length as the shortest ones, that have been corrected
+# two times. So he have to retrieve 2 values from the "already stationnary" ones.
+
+# Align time series length----
+
+tsadj <- grep("^ts_.*_adj$", names(df), value = TRUE)
+min_length <- min(sapply(df[cols], length))
+
+df_aligned <- df
+for (col in cols) {
+  df_aligned[[col]] <- tail(df[[col]], min_length)
+}
 
 
-# ACP----
-library(FactoMineR)
-library(factoextra)
-library(combinat)
-
-res.pca1 = PCA(land_w[3:45], axes=c(1,2))
-fviz_pca_var(res.pca1, col.var="cos2")
-res.pca1$eig[1,2]
-res.pca1$eig[2,2]
 
 
 
