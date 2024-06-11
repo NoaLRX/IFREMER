@@ -1171,36 +1171,42 @@ for (yr in years) {
 }
 
 # Create the €/KG data frame
-# Supposons que les données sont dans un dataframe appelé 'value_landings_df'
-
-# Extraire les noms des colonnes
+# Extract column names
 col_names <- names(value_landings_df)
 
-# Trouver les noms des espèces (les 3 dernières lettres des noms de colonnes)
-species <- unique(substr(col_names[grep("^(LANDINGS|VALUE)_", col_names)], nchar(col_names[grep("^(LANDINGS|VALUE)_", col_names)])-2, nchar(col_names[grep("^(LANDINGS|VALUE)_", col_names)])))
+# Find species names (everything after the underscore in column names)
+species <- unique(sub("^(LANDINGS|VALUE)_", "", col_names[grep("^(LANDINGS|VALUE)_", col_names)]))
 
-# Créer un nouveau dataframe avec Year et Quarter
+# Create a new dataframe with Year and Quarter
 result_df <- value_landings_df[, c("Year", "Quarter")]
 
-# Calculer la valeur par kg pour chaque espèce, par trimestre et par année
 for(sp in species) {
   landing_col <- paste0("LANDINGS_", sp)
   value_col <- paste0("VALUE_", sp)
   
-  # Diviser la valeur par les débarquements pour obtenir €/kg
-  result_df[[paste0(sp, "_EurPerKg")]] <- value_landings_df[[value_col]] / value_landings_df[[landing_col]]
+  # Skip species with all 0 values in landings or value columns
+  if (all(value_landings_df[[landing_col]] == 0) || all(value_landings_df[[value_col]] == 0)) {
+    next
+  }
+  
+  ratio <- value_landings_df[[value_col]] / value_landings_df[[landing_col]]
+  
+  print(paste0("Species: ", sp))
+  print(ratio)
+  
+  result_df[[paste0(sp, "_EurPerKg")]] <- replace(ratio, is.infinite(ratio) | is.nan(ratio), NA)
 }
 
-# Afficher les premières lignes du résultat
+# Print results
 head(result_df)
-
+eurkg_df <- result_df
 
 
 
 
 ## €/kg evolution plot----
 # Convert Year and Quarter to a single factor column
-value_landings_df$YearQuarter <- factor(paste(value_landings_df$Year, value_landings_df$Quarter, sep = "Q"))
+#value_landings_df$YearQuarter <- factor(paste(value_landings_df$Year, value_landings_df$Quarter, sep = "Q"))
 
 # Graph: Plot function
 # create_plot <- function(data, species) {
@@ -1269,10 +1275,347 @@ value_landings_df$YearQuarter <- factor(paste(value_landings_df$Year, value_land
 # cat(paste0("Exported combined plots to ", output_file, "\n"))
 
 
+# Correlations----
+## From 2013 to 2022----
+#' The idea is to create a correlation's matrix to understand the strength of 
+#' the relation between the evolution of each LPUE species troughs the years.
+#' We want to know if the LPUE's evolution of one specie from 2013 to 2022 is 
+#' highly correlated to another specie. To be more precise, we want to how the 
+#' "static" species are correlated to the "dynamic" species. 
+
+### Correlations : landings(kg) vs landings (kg)----
+# Select only the columns that corresponds to species
+lpue <- lpue_df2
+species <- lpue[, -(1:2)] # excluding the columns "Year" and "Quarter"
+matrice_corr <- cor(species)
+print(matrice_corr)
+# By default, we compute Pearsons's correlations coefficients 
+
+
+# Correlations dataframes
+corr_df <- as.data.frame(matrice_corr)
+corr_df <- corr_df[,c("MUT6", "MUT7", "NEP6", "ARA67", "DPS567", "HKE1567")]
+
+# Extract the 10th highest values (positive and negative)
+extract_top_values <- function(corr_vector, species_names) {
+  sorted_corr_pos <- sort(corr_vector[corr_vector > 0], decreasing = TRUE)
+  sorted_corr_neg <- sort(corr_vector[corr_vector < 0], decreasing = FALSE)
+  
+  positive_values <- head(sorted_corr_pos, 10)
+  negative_values <- head(sorted_corr_neg, 10)
+  
+  if(length(positive_values) < 10) {
+    positive_values <- c(positive_values, rep(NA, 10 - length(positive_values)))
+  }
+  if(length(negative_values) < 10) {
+    negative_values <- c(negative_values, rep(NA, 10 - length(negative_values)))
+  }
+  
+  data.frame(
+    Pos_Species = species_names[match(positive_values, corr_vector)],
+    Pos_Values = positive_values,
+    Neg_Species = species_names[match(negative_values, corr_vector)],
+    Neg_Values = negative_values
+  )
+}
+
+# Apply the function on each columns
+corr_MUT6 <- extract_top_values(corr_df$MUT6, rownames(corr_df))
+corr_MUT7 <- extract_top_values(corr_df$MUT7, rownames(corr_df))
+corr_NEP6 <- extract_top_values(corr_df$NEP6, rownames(corr_df))
+corr_ARA67 <- extract_top_values(corr_df$ARA67, rownames(corr_df))
+corr_DPS567 <- extract_top_values(corr_df$DPS567, rownames(corr_df))
+
+# "ww" means correlations between landings(weight) and landings(weight)
+corr_MUT6_ww <- corr_MUT6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_MUT7_ww <- corr_MUT7 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_NEP6_ww <- corr_NEP6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_ARA67_ww <- corr_ARA67 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_DPS567_ww <- corr_DPS567 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+
+# Affichage des résultats
+print(corr_MUT6_ww )
+print(corr_MUT7_ww)
+print(corr_NEP6_ww)
+print(corr_ARA67_ww)
+print(corr_DPS567_ww)
 
 
 
-# Correlations btw value (€/kg) & landings (kg) per species----
+
+### Correlations : landings(V€) vs landings (V€)----
+# Select only the columns that corresponds to species
+vpue <- vpue_df2
+species <- vpue[, -(1:2)] # excluding the columns "Year" and "Quarter"
+matrice_corr <- cor(species)
+print(matrice_corr)
+# By default, we compute Pearsons's correlations coefficients 
+
+
+# Correlations dataframes
+corr_df <- as.data.frame(matrice_corr)
+corr_df <- corr_df[,c("MUT6", "MUT7", "NEP6", "ARA67", "DPS567", "HKE1567")]
+
+# Extract the 10th highest values (positive and negative)
+extract_top_values <- function(corr_vector, species_names) {
+  sorted_corr_pos <- sort(corr_vector[corr_vector > 0], decreasing = TRUE)
+  sorted_corr_neg <- sort(corr_vector[corr_vector < 0], decreasing = FALSE)
+  
+  positive_values <- head(sorted_corr_pos, 10)
+  negative_values <- head(sorted_corr_neg, 10)
+  
+  if(length(positive_values) < 10) {
+    positive_values <- c(positive_values, rep(NA, 10 - length(positive_values)))
+  }
+  if(length(negative_values) < 10) {
+    negative_values <- c(negative_values, rep(NA, 10 - length(negative_values)))
+  }
+  
+  data.frame(
+    Pos_Species = species_names[match(positive_values, corr_vector)],
+    Pos_Values = positive_values,
+    Neg_Species = species_names[match(negative_values, corr_vector)],
+    Neg_Values = negative_values
+  )
+}
+
+# Apply the function on each columns
+corr_MUT6 <- extract_top_values(corr_df$MUT6, rownames(corr_df))
+corr_MUT7 <- extract_top_values(corr_df$MUT7, rownames(corr_df))
+corr_NEP6 <- extract_top_values(corr_df$NEP6, rownames(corr_df))
+corr_ARA67 <- extract_top_values(corr_df$ARA67, rownames(corr_df))
+corr_DPS567 <- extract_top_values(corr_df$DPS567, rownames(corr_df))
+
+# "vv" means correlations between landings(value) and landings(value)
+corr_MUT6_vv <- corr_MUT6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_MUT7_vv <- corr_MUT7 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_NEP6_vv <- corr_NEP6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_ARA67_vv <- corr_ARA67 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_DPS567_vv <- corr_DPS567 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+
+# Affichage des résultats
+print(corr_MUT6_vv )
+print(corr_MUT7_vv)
+print(corr_NEP6_vv)
+print(corr_ARA67_vv)
+print(corr_DPS567_vv)
+
+
+
+
+### Correlations: (€/kg) vs (€/kg) ----
+# Select only the columns that correspond to species
+eurkg <- eurkg_df[, -(1:2)] # excluding the columns "Year" and "Quarter"
+matrice_corr <- cor(eurkg)
+
+# Correlations dataframe
+corr_df <- as.data.frame(matrice_corr)
+
+# Extract the 10th highest values (positive and negative)
+extract_top_values <- function(corr_vector, species_names) {
+  sorted_corr_pos <- sort(corr_vector[corr_vector > 0], decreasing = TRUE)
+  sorted_corr_neg <- sort(corr_vector[corr_vector < 0], decreasing = FALSE)
+  
+  positive_values <- head(sorted_corr_pos, 10)
+  negative_values <- head(sorted_corr_neg, 10)
+  
+  if (length(positive_values) < 10) {
+    positive_values <- c(positive_values, rep(NA, 10 - length(positive_values)))
+  }
+  if (length(negative_values) < 10) {
+    negative_values <- c(negative_values, rep(NA, 10 - length(negative_values)))
+  }
+  
+  data.frame(
+    Pos_Species = species_names[match(positive_values, corr_vector)],
+    Pos_Values = positive_values,
+    Neg_Species = species_names[match(negative_values, corr_vector)],
+    Neg_Values = negative_values
+  )
+}
+
+# Apply the function on the selected columns
+selected_cols <- c("MUT7_EurPerKg", "NEP7_EurPerKg", "DPS567_EurPerKg", "HKE1567_EurPerKg")
+corr_results <- lapply(selected_cols, function(col_name) {
+  corr_df <- extract_top_values(corr_df[, col_name], rownames(corr_df))
+  corr_df %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+})
+
+names(corr_results) <- paste0(selected_cols, "_eurkg")
+
+# Display the results
+lapply(corr_results, print)
+
+
+## From 2021 to 2022----
+#' Now we will do the same but only with 2021-2022 data
+
+### Correlations : landings(kg) vs landings (kg)----
+# Select only the columns that corresponds to species
+lpue <- lpue_df2[lpue_df2$Year >= 2021,]
+species <- lpue[, -(1:2)] # excluding the columns "Year" and "Quarter"
+matrice_corr <- cor(species)
+print(matrice_corr)
+# By default, we compute Pearsons's correlations coefficients 
+
+
+# Correlations dataframes
+corr_df <- as.data.frame(matrice_corr)
+corr_df <- corr_df[,c("MUT6", "MUT7", "NEP6", "ARA67", "DPS567", "HKE1567")]
+
+# Extract the 10th highest values (positive and negative)
+extract_top_values <- function(corr_vector, species_names) {
+  sorted_corr_pos <- sort(corr_vector[corr_vector > 0], decreasing = TRUE)
+  sorted_corr_neg <- sort(corr_vector[corr_vector < 0], decreasing = FALSE)
+  
+  positive_values <- head(sorted_corr_pos, 10)
+  negative_values <- head(sorted_corr_neg, 10)
+  
+  if(length(positive_values) < 10) {
+    positive_values <- c(positive_values, rep(NA, 10 - length(positive_values)))
+  }
+  if(length(negative_values) < 10) {
+    negative_values <- c(negative_values, rep(NA, 10 - length(negative_values)))
+  }
+  
+  data.frame(
+    Pos_Species = species_names[match(positive_values, corr_vector)],
+    Pos_Values = positive_values,
+    Neg_Species = species_names[match(negative_values, corr_vector)],
+    Neg_Values = negative_values
+  )
+}
+
+# Apply the function on each columns
+corr_MUT6 <- extract_top_values(corr_df$MUT6, rownames(corr_df))
+corr_MUT7 <- extract_top_values(corr_df$MUT7, rownames(corr_df))
+corr_NEP6 <- extract_top_values(corr_df$NEP6, rownames(corr_df))
+corr_ARA67 <- extract_top_values(corr_df$ARA67, rownames(corr_df))
+corr_DPS567 <- extract_top_values(corr_df$DPS567, rownames(corr_df))
+
+# "ww" means correlations between landings(weight) and landings(weight)
+corr_MUT6_ww <- corr_MUT6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_MUT7_ww <- corr_MUT7 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_NEP6_ww <- corr_NEP6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_ARA67_ww <- corr_ARA67 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_DPS567_ww <- corr_DPS567 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+
+# Affichage des résultats
+print(corr_MUT6_ww )
+print(corr_MUT7_ww)
+print(corr_NEP6_ww)
+print(corr_ARA67_ww)
+print(corr_DPS567_ww)
+
+
+
+
+### Correlations : landings(V€) vs landings (V€)----
+# Select only the columns that corresponds to species
+vpue <- vpue_df2[vpue_df2$Year >= 2021,]
+species <- vpue[, -(1:2)] # excluding the columns "Year" and "Quarter"
+matrice_corr <- cor(species)
+print(matrice_corr)
+# By default, we compute Pearsons's correlations coefficients 
+
+
+# Correlations dataframes
+corr_df <- as.data.frame(matrice_corr)
+corr_df <- corr_df[,c("MUT6", "MUT7", "NEP6", "ARA67", "DPS567", "HKE1567")]
+
+# Extract the 10th highest values (positive and negative)
+extract_top_values <- function(corr_vector, species_names) {
+  sorted_corr_pos <- sort(corr_vector[corr_vector > 0], decreasing = TRUE)
+  sorted_corr_neg <- sort(corr_vector[corr_vector < 0], decreasing = FALSE)
+  
+  positive_values <- head(sorted_corr_pos, 10)
+  negative_values <- head(sorted_corr_neg, 10)
+  
+  if(length(positive_values) < 10) {
+    positive_values <- c(positive_values, rep(NA, 10 - length(positive_values)))
+  }
+  if(length(negative_values) < 10) {
+    negative_values <- c(negative_values, rep(NA, 10 - length(negative_values)))
+  }
+  
+  data.frame(
+    Pos_Species = species_names[match(positive_values, corr_vector)],
+    Pos_Values = positive_values,
+    Neg_Species = species_names[match(negative_values, corr_vector)],
+    Neg_Values = negative_values
+  )
+}
+
+# Apply the function on each columns
+corr_MUT6 <- extract_top_values(corr_df$MUT6, rownames(corr_df))
+corr_MUT7 <- extract_top_values(corr_df$MUT7, rownames(corr_df))
+corr_NEP6 <- extract_top_values(corr_df$NEP6, rownames(corr_df))
+corr_ARA67 <- extract_top_values(corr_df$ARA67, rownames(corr_df))
+corr_DPS567 <- extract_top_values(corr_df$DPS567, rownames(corr_df))
+
+# "vv" means correlations between landings(value) and landings(value)
+corr_MUT6_vv <- corr_MUT6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_MUT7_vv <- corr_MUT7 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_NEP6_vv <- corr_NEP6 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_ARA67_vv <- corr_ARA67 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+corr_DPS567_vv <- corr_DPS567 %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+
+# Affichage des résultats
+print(corr_MUT6_vv )
+print(corr_MUT7_vv)
+print(corr_NEP6_vv)
+print(corr_ARA67_vv)
+print(corr_DPS567_vv)
+
+
+
+
+### Correlations: (€/kg) vs (€/kg) ----
+# Select only the columns that correspond to species
+eurkg <- eurkg_df %>% 
+  filter(Year >= 2021) %>%
+  select(-c(1, 2)) # excluding the columns "Year" and "Quarter"
+matrice_corr <- cor(eurkg)
+
+# Correlations dataframe
+corr_df <- as.data.frame(matrice_corr)
+
+# Extract the 10th highest values (positive and negative)
+extract_top_values <- function(corr_vector, species_names) {
+  sorted_corr_pos <- sort(corr_vector[corr_vector > 0], decreasing = TRUE)
+  sorted_corr_neg <- sort(corr_vector[corr_vector < 0], decreasing = FALSE)
+  
+  positive_values <- head(sorted_corr_pos, 10)
+  negative_values <- head(sorted_corr_neg, 10)
+  
+  if (length(positive_values) < 10) {
+    positive_values <- c(positive_values, rep(NA, 10 - length(positive_values)))
+  }
+  if (length(negative_values) < 10) {
+    negative_values <- c(negative_values, rep(NA, 10 - length(negative_values)))
+  }
+  
+  data.frame(
+    Pos_Species = species_names[match(positive_values, corr_vector)],
+    Pos_Values = positive_values,
+    Neg_Species = species_names[match(negative_values, corr_vector)],
+    Neg_Values = negative_values
+  )
+}
+
+# Apply the function on the selected columns
+selected_cols <- c("MUT7_EurPerKg", "NEP7_EurPerKg", "DPS567_EurPerKg", "HKE1567_EurPerKg")
+corr_results <- lapply(selected_cols, function(col_name) {
+  corr_df <- extract_top_values(corr_df[, col_name], rownames(corr_df))
+  corr_df %>% mutate(across(c(Pos_Values, Neg_Values), round, 2))
+})
+
+names(corr_results) <- paste0(selected_cols, "_eurkg")
+
+# Display the results
+lapply(corr_results, print)
+
+## Correlations btw value (€/kg) & landings (kg) per species----
 #' We want to compute the correlations of one specie value (€/kg) and landings
 #' (in kg). So we want one coefficient per specie that illustrate the strength
 #' of the relation between value & landings of each species.
@@ -1328,7 +1671,7 @@ significant_corr_df <- corr_df %>%
 
 
 
-# Correlations btw value (€/kg) & landings (kg) per species and PER FLEETS----
+## Correlations btw value (€/kg) & landings (kg) per species and PER FLEETS----
 #' We want to do the same as previously but per specie-fleet duo.
 
 # Fleets list
@@ -1478,82 +1821,240 @@ top_10_species <- top_10_species %>%
 #' The idea here is to create a diagram with the different vessels, size, gears
 #' and the amount (in term of kg landings) they fish
 
-#' Because we have a lot of data, we need to filter a bit. Let's represent
-#' only the most important taxons in term of landings kg.
-
-select <- landings %>%
-  select(X3A_CODE, totwghtlandg) %>%
-  group_by(X3A_CODE) %>%
-  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-  arrange(desc(totwghtlandg))
-
-# Let's take the  most important species in term of landings kg across 2013:2022
-tentaxons <- unique(head(select["X3A_CODE"], n=10))
-tentaxons <- unlist(tentaxons)
-
-select2 <- landings %>%
-  select(FleetIAM, totwghtlandg) %>%
-  group_by(FleetIAM) %>%
-  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-  arrange(desc(totwghtlandg))
-
-# Let's take the  most important fleet in term of landings kg across 2013:2022
-tenfleets <- unique(head(select2["FleetIAM"], n=6))
-tenfleets <- unlist(tenfleets)
-
-sankey <- landings %>%
-  filter (COUNTRY == "FRA") %>%
-  filter (X3A_CODE %in% tentaxons) %>%
-  filter (FleetIAM %in% tenfleets) %>%
-  select (FleetIAM, X3A_CODE,totwghtlandg) %>%
-  group_by(FleetIAM, X3A_CODE) %>%
-  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
-
-
-# Graph: From Fleets to Species
-# output_file <- "Figures/FRA/sankey_depend.pdf"
-# pdf(output_file, width = 12, height = 10)
-# 
-# ggplot(data = sankey,
-#        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-#   geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
-#                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-#   geom_stratum()+ # Categories blocks
-#   geom_text(stat = "stratum",
-#             aes(label = after_stat(stratum))) + # Categories block's names
-#   ggtitle("6 most important fleets and 10 most important species, both in term of landings (kg)",
-#           subtitle = "Fleets dependencies to each species")+
-#   theme_void() +
-#   theme(
-#     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-#     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-#   )+
-#   guides(fill=FALSE) # No Legend
-# 
-# dev.off()
-
-
-# Graph:From Species to Fleets
-# output_file <- "Figures/FRA/sankey_contrib.pdf"
-# pdf(output_file, width = 12, height = 10)
-# 
-# ggplot(data = sankey,
-#        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-#   geom_alluvium(aes(fill = X3A_CODE),# Link goes from Species to Fleets
-#                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-#   geom_stratum()+ # Categories blocks
-#   geom_text(stat = "stratum",
-#             aes(label = after_stat(stratum))) + # Categories block's names
-#   ggtitle("6 most important fleets and 10 most important species, both in term of landings (kg)",
-#           subtitle = "Contribution of each species to landings of each fleets")+
-#   theme_void() +
-#   theme(
-#     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-#     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-#   )+
-#   guides(fill=FALSE) # No Legend
-# 
-# dev.off()
+#' ## 2013:2022----
+#' #' Because we have a lot of data, we need to filter a bit. Let's represent
+#' #' only the most important taxons in term of landings kg.
+#' 
+#' select <- landings %>%
+#'   select(X3A_CODE, totwghtlandg) %>%
+#'   group_by(X3A_CODE) %>%
+#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+#'   arrange(desc(totwghtlandg))
+#' 
+#' # Let's take the  most important species in term of landings kg across 2013:2022
+#' tentaxons <- unique(head(select["X3A_CODE"], n=10))
+#' tentaxons <- unlist(tentaxons)
+#' 
+#' select2 <- landings %>%
+#'   select(FleetIAM, totwghtlandg) %>%
+#'   group_by(FleetIAM) %>%
+#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+#'   arrange(desc(totwghtlandg))
+#' 
+#' # Let's take the  most important fleet in term of landings kg across 2013:2022
+#' tenfleets <- unique(head(select2["FleetIAM"], n=6))
+#' tenfleets <- unlist(tenfleets)
+#' 
+#' sankey <- landings %>%
+#'   filter (COUNTRY == "FRA") %>%
+#'   filter (X3A_CODE %in% tentaxons) %>%
+#'   filter (FleetIAM %in% tenfleets) %>%
+#'   select (FleetIAM, X3A_CODE,totwghtlandg) %>%
+#'   group_by(FleetIAM, X3A_CODE) %>%
+#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+#' 
+#' 
+#' # Graph: From Fleets to Species
+#' output_file <- "Figures/FRA/Sankey/sankey_dependALL.pdf"
+#' pdf(output_file, width = 12, height = 10)
+#' 
+#' ggplot(data = sankey,
+#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+#'   geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
+#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+#'   geom_stratum()+ # Categories blocks
+#'   geom_text(stat = "stratum",
+#'             aes(label = after_stat(stratum))) + # Categories block's names
+#'   ggtitle("Fleets dependencies to each species",
+#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2013 to 2022")+
+#'   theme_void() +
+#'   theme(
+#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+#'   )+
+#'   guides(fill=FALSE) # No Legend
+#' 
+#' dev.off()
+#' 
+#' 
+#' # Graph:From Species to Fleets
+#' output_file <- "Figures/FRA/Sankey/sankey_contribALL.pdf"
+#' pdf(output_file, width = 12, height = 10)
+#' 
+#' ggplot(data = sankey,
+#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+#'   geom_alluvium(aes(fill = X3A_CODE),# Link goes from Species to Fleets
+#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+#'   geom_stratum()+ # Categories blocks
+#'   geom_text(stat = "stratum",
+#'             aes(label = after_stat(stratum))) + # Categories block's names
+#'   ggtitle("Contribution of each species to landings of each fleets",
+#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2013 to 2022")+
+#'   theme_void() +
+#'   theme(
+#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+#'   )+
+#'   guides(fill=FALSE) # No Legend
+#' 
+#' dev.off()
+#' 
+#' 
+#' 
+#' ## 2021:2022----
+#' #' Now we will do the same graph but only with data from 2021 to 2022
+#' select <- landings %>%
+#'   filter(YEAR == c("2021","2022")) %>%
+#'   select(X3A_CODE, totwghtlandg) %>%
+#'   group_by(X3A_CODE) %>%
+#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+#'   arrange(desc(totwghtlandg))
+#' 
+#' # Let's take the  most important species in term of landings kg from 2021 to 2022
+#' tentaxons <- unique(head(select["X3A_CODE"], n=10))
+#' tentaxons <- unlist(tentaxons)
+#' 
+#' select2 <- landings %>%
+#'   select(FleetIAM, totwghtlandg) %>%
+#'   group_by(FleetIAM) %>%
+#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+#'   arrange(desc(totwghtlandg))
+#' 
+#' # Let's take the  most important fleet in term of landings kg from 2021 to 2022
+#' tenfleets <- unique(head(select2["FleetIAM"], n=6))
+#' tenfleets <- unlist(tenfleets)
+#' 
+#' sankey <- landings %>%
+#'   filter (COUNTRY == "FRA") %>%
+#'   filter (X3A_CODE %in% tentaxons) %>%
+#'   filter (FleetIAM %in% tenfleets) %>%
+#'   select (FleetIAM, X3A_CODE,totwghtlandg) %>%
+#'   group_by(FleetIAM, X3A_CODE) %>%
+#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+#' 
+#' 
+#' # Graph: From Fleets to Species
+#' output_file <- "Figures/FRA/Sankey/sankey_depend2122.pdf"
+#' pdf(output_file, width = 12, height = 10)
+#' 
+#' ggplot(data = sankey,
+#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+#'   geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
+#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+#'   geom_stratum()+ # Categories blocks
+#'   geom_text(stat = "stratum",
+#'             aes(label = after_stat(stratum))) + # Categories block's names
+#'   ggtitle("Fleets dependencies to each species",
+#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2021 to 2022")+
+#'   theme_void() +
+#'   theme(
+#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+#'   )+
+#'   guides(fill=FALSE) # No Legend
+#' 
+#' dev.off()
+#' 
+#' 
+#' # Graph:From Species to Fleets
+#' output_file <- "Figures/FRA/Sankey/sankey_contrib2122.pdf"
+#' pdf(output_file, width = 12, height = 10)
+#' 
+#' ggplot(data = sankey,
+#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+#'   geom_alluvium(aes(fill = X3A_CODE),# Link goes from Species to Fleets
+#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+#'   geom_stratum()+ # Categories blocks
+#'   geom_text(stat = "stratum",
+#'             aes(label = after_stat(stratum))) + # Categories block's names
+#'   ggtitle("Contribution of each species to landings of each fleets",
+#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2021 to 2022")+
+#'   theme_void() +
+#'   theme(
+#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+#'   )+
+#'   guides(fill=FALSE) # No Legend
+#' 
+#' dev.off()
+#' 
+#' 
+#' ## 2022 only----
+#' #' Now we will do the same graph but only with data from 2022
+#' select <- landings %>%
+#'   filter(YEAR == "2022") %>%
+#'   select(X3A_CODE, totwghtlandg) %>%
+#'   group_by(X3A_CODE) %>%
+#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+#'   arrange(desc(totwghtlandg))
+#' 
+#' # Let's take the  most important species in term of landings kg from 2022
+#' tentaxons <- unique(head(select["X3A_CODE"], n=10))
+#' tentaxons <- unlist(tentaxons)
+#' 
+#' select2 <- landings %>%
+#'   select(FleetIAM, totwghtlandg) %>%
+#'   group_by(FleetIAM) %>%
+#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+#'   arrange(desc(totwghtlandg))
+#' 
+#' # Let's take the  most important fleet in term of landings kg from 2022
+#' tenfleets <- unique(head(select2["FleetIAM"], n=6))
+#' tenfleets <- unlist(tenfleets)
+#' 
+#' sankey <- landings %>%
+#'   filter (COUNTRY == "FRA") %>%
+#'   filter (X3A_CODE %in% tentaxons) %>%
+#'   filter (FleetIAM %in% tenfleets) %>%
+#'   select (FleetIAM, X3A_CODE,totwghtlandg) %>%
+#'   group_by(FleetIAM, X3A_CODE) %>%
+#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+#' 
+#' 
+#' # Graph: From Fleets to Species
+#' output_file <- "Figures/FRA/Sankey/sankey_depend2022.pdf"
+#' pdf(output_file, width = 12, height = 10)
+#' 
+#' ggplot(data = sankey,
+#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+#'   geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
+#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+#'   geom_stratum()+ # Categories blocks
+#'   geom_text(stat = "stratum",
+#'             aes(label = after_stat(stratum))) + # Categories block's names
+#'   ggtitle("Fleets dependencies to each species",
+#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2022")+
+#'   theme_void() +
+#'   theme(
+#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+#'   )+
+#'   guides(fill=FALSE) # No Legend
+#' 
+#' dev.off()
+#' 
+#' 
+#' # Graph:From Species to Fleets
+#' output_file <- "Figures/FRA/Sankey/sankey_contrib2022.pdf"
+#' pdf(output_file, width = 12, height = 10)
+#' 
+#' ggplot(data = sankey,
+#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+#'   geom_alluvium(aes(fill = X3A_CODE),# Link goes from Species to Fleets
+#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+#'   geom_stratum()+ # Categories blocks
+#'   geom_text(stat = "stratum",
+#'             aes(label = after_stat(stratum))) + # Categories block's names
+#'   ggtitle("Contribution of each species to landings of each fleets",
+#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2022")+
+#'   theme_void() +
+#'   theme(
+#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+#'   )+
+#'   guides(fill=FALSE) # No Legend
+#' 
+#' dev.off()
 
 
 
