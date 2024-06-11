@@ -39,7 +39,7 @@ for (i in 3:ncol(land_w)) {
 }
 
 
-# Correction of atypical points----
+# Atypical points Correction----
 for (col_name in names(ts_list)) {
   ts_name <- paste0("ts_", col_name)
   ts_name_tso <- paste0("tso_", col_name)
@@ -270,17 +270,44 @@ for (i in names(ts_list)) {
 
 # All the time series are now stationary, let's adjust the other time series
 # so that they have the same length as the shortest ones, that have been corrected
-# two times. So he have to retrieve 2 values from the "already stationnary" ones.
+# two times. So he have to retrieve 2 values from the "already stationary" ones.
 
 # Align time series length----
 
-tsadj <- grep("^ts_.*_adj$", names(df), value = TRUE)
-min_length <- min(sapply(df[cols], length))
 
-df_aligned <- df
-for (col in cols) {
-  df_aligned[[col]] <- tail(df[[col]], min_length)
+series_list <- ls(pattern = "^ts_.*_adj$")
+series_list <- series_list[series_list != "ts_name_adj"]
+
+min_length <- min(sapply(mget(series_list), length))
+
+for (series_name in series_list) {
+  series <- get(series_name)
+  start_index <- length(series) - min_length + 1
+  start_time <- time(series)[start_index]
+  series_trimmed <- window(series, start = start_time)
+  assign(series_name, series_trimmed, envir = .GlobalEnv)
 }
+
+
+
+# Atypical points correction AGAIN----
+series_list_adj <- lapply(series_list, function(series_name) {
+  series <- get(series_name)
+  fit <- tso(series)
+  
+  # Vérifier si des outliers ont été détectés
+  if (!is.null(fit$outliers) && nrow(fit$outliers) > 0) {
+    print(paste("Des outliers ont été détectés pour", series_name))
+  }
+  
+  series_adj <- fit$yadj
+  new_name <- paste0(series_name, "_adj")
+  assign(new_name, series_adj, envir = .GlobalEnv)
+  return(series_adj)
+})
+
+
+
 
 
 
