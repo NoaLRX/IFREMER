@@ -381,3 +381,409 @@ HKE_df <- ts_df %>%
 y_real <- tail(HKE_df$ts_HKE1567_adj, n=8)
 y_real <- as.numeric(y_real)
 
+
+## ARX model with GETS----
+n <- nrow(HKE_df)
+train_size <- round(0.8 * n)
+train_data <- HKE_df[1:train_size, ]
+test_data <- HKE_df[(train_size+1):n, ]
+mX_train <- data.matrix(train_data[,-1])  # every columns except 'HKE'
+mX_test <- data.matrix(test_data[,-1])  # every columns except 'HKE'
+y_train <- train_data$ts_HKE1567_adj
+y_test <- test_data$ts_HKE1567_adj
+model <- arx(y_train, mc = TRUE, ar = 1, mxreg = mX_train, vcov.type = "ordinary")
+n_test <- nrow(test_data)
+p_arxget <- predict(model, n.ahead = n_test, newmxreg = mX_test)
+p_arxget <- as.numeric(p_arxget)
+
+
+# Représentation graphique
+plot(y_real, type = "l", col = "black", lwd = 2, ylim = range(c(p_arxget)))
+# Ajouter les prévisions au graphique
+lines(p_arxget, col = "red", lwd = 2)
+
+rmse <- sqrt(mean((y_real - p_arxget)^2, na.rm = TRUE))
+print(paste("RMSE :", rmse)) # 96,84
+
+
+
+
+
+
+## Modele ARX avec auto_arima----
+split <- round(nrow(HKE_df) * 0.8)
+train_df <- HKE_df[1:split, ]
+test_df <- HKE_df[(split+1):nrow(HKE_df), ]
+y_train <- train_df$ts_HKE1567_adj
+xreg_train <- data.matrix(train_df[,-1]) # Exclure la première colonne qui est la variable dépendante
+modelx_train <- auto.arima(y_train, max.q = 0, xreg = xreg_train, seasonal = FALSE, stationary = TRUE)
+xreg_test <- data.matrix(test_df[,-1]) # Exclure la première colonne qui est la variable dépendante
+p_arx <- predict(modelx_train, newxreg = xreg_test, n.ahead = nrow(test_df))$pred
+p_arx <- as.numeric(p_arx)
+
+plot(y_real, type = "l", col = "black", lwd = 2, ylim = range(c(p_arx)))
+lines(p_arxget, col="red")
+lines(p_arx, col = "green",lwd=2)
+
+rmse <- sqrt(mean((y_real - p_arx)^2, na.rm = TRUE))
+print(paste("RMSE :", rmse)) # 89.04
+
+
+
+
+## Modele ARMAX avec auto_arima----
+split <- round(nrow(HKE_df) * 0.8)
+train_df <- HKE_df[1:split, ]
+test_df <- HKE_df[(split+1):nrow(HKE_df), ]
+y_train <- train_df$ts_HKE1567_adj
+xreg_train <- data.matrix(train_df[,-1]) # Exclure la première colonne qui est la variable dépendante
+modelx_train <- auto.arima(y_train, xreg = xreg_train, seasonal = FALSE, stationary = TRUE)
+j <- ncol(modelx_train$var.coef)
+tstat <- matrix(nrow=j, ncol=1)
+for(i in 1:j)
+{
+  tstat[i,1] <- modelx_train$coef[i]/sqrt(modelx_train$var.coef[i,i])
+}
+tstat
+xreg_test <- data.matrix(test_df[,-1]) # Exclure la première colonne qui est la variable dépendante
+p_armax <- predict(modelx_train, newxreg = xreg_test, n.ahead = nrow(test_df))$pred
+p_armax <- as.numeric(p_armax)
+p_armax
+
+plot(y_real, type = "l", col = "black",lwd=2, ylim = range(c(p_armax)))
+lines(p_arxget, col="red")
+lines(p_arx, col = "green")
+lines(p_armax, col = "purple",lwd=2)
+
+rmse <- sqrt(mean((y_real - p_armax)^2, na.rm = TRUE))
+print(paste("RMSE :", rmse)) # 89.04
+
+
+
+
+
+## Model LM----
+set.seed(123)
+split <- round(nrow(HKE_df) * 0.8)
+train_df <- HKE_df[1:split, ]
+test_df <- HKE_df[(split+1):nrow(HKE_df), ]
+model_lm <- lm(ts_HKE1567_adj ~ ., data = train_df)
+p_lm <- predict(model_lm, newdata = test_df)
+p_lm <- as.numeric(p_lm)
+
+plot(y_real, type = "l", col = "black",lwd=3, ylim = range(c(p_lm)))
+lines(p_arxget, col="red")
+lines(p_arx, col = "green")
+lines(p_armax, col = "purple")
+lines(p_lm, col = "yellow",lwd=3)
+
+rmse <- sqrt(mean((y_real - p_lm)^2, na.rm = TRUE))
+print(paste("RMSE :", rmse)) #99
+
+
+
+## Model AR1---- 
+y <- ts(HKE_df$ts_HKE1567_adj)
+model_ar1 <- Arima(y, order = c(1, 0, 0), seasonal = list(order = c(0, 0, 0), period=12),lambda=1)
+forecast_ar1 <- forecast(model_ar1, h = 57)
+p_ar1 <- forecast_ar1$mean
+p_ar1 <- as.numeric(p_ar1)
+
+# plot(y_test, type = "l", col = "black",lwd=3, ylim = range(c(y_test)))
+# lines(p_arxget, col="red")
+# lines(p_arx, col = "green")
+# lines(p_armax, col = "purple")
+# lines(p_lm, col = "yellow")
+# lines(p_ar1, col = "pink",lwd=3)
+
+rmse <- sqrt(mean((y_real - p_ar1)^2, na.rm = TRUE))
+print(paste("RMSE :", rmse)) # 2.20
+
+
+
+## Model GAM----
+library(mgcv)
+set.seed(123)
+smp_size <- ceiling(0.80 * nrow(HKE_df))
+train_ind <- sample(seq_len(nrow(HKE_df)), size = smp_size)
+train <- HKE_df[train_ind, ]
+test <- HKE_df[-train_ind, ]
+model_gam <- gam(ts_HKE1567_adj ~ s(ts_ANE_adj) + s(ts_ARA67_adj) + s(ts_JOD_adj) + s(ts_MGR_adj) 
+                 + s(ts_OCT_adj) + s(ts_POD_adj) + s(ts_SQZ_adj) + s(ts_WEX_adj), data = train)
+p_gam <- predict(model_gam, newdata = test)
+p_gam <- as.numeric(p_gam)
+
+rmse <- sqrt(mean((y_real - p_gam)^2, na.rm = TRUE))
+print(paste("RMSE :", rmse)) # 57
+
+
+
+
+# Machine-Learning----
+## Modele MLP----
+library(neuralnet)
+set.seed(123) 
+n <- nrow(HKE_df)
+train_size <- round(0.8 * n)
+train <- HKE_df[1:train_size, ]
+test <- HKE_df[(train_size+1):n, ]
+mlp_model <- neuralnet(ts_HKE1567_adj ~ ., data = train, hidden = 1)
+p_mlp <- compute(mlp_model, test[,-1])
+p_mlp <- as.numeric(p_mlp$net.result)
+
+plot(y_real,type = "l", col = "black",lwd=2, ylim = range(c(y_real)))
+lines(p_mlp, col = "brown")
+rmse <- sqrt(mean((y_real - p_mlp)^2, na.rm = TRUE))
+print(paste("RMSE :", rmse)) # 57.2
+
+
+
+## Modele MARS----
+library(earth)
+n <- nrow(HKE_df)
+train_size <- round(0.8 * n)
+train <- HKE_df[1:train_size, ]
+test <- HKE_df[(train_size+1):n, ]
+mars_model <- earth(ts_HKE1567_adj ~ ., data = train)
+p_mars <- predict(mars_model, newdata = test)
+p_mars <- as.numeric(p_mars)
+
+plot(y_test, type = "l", col = "black",lwd=2, ylim = range((c(y_real))))
+lines(p_mlp, col = "brown")
+lines(p_mars, col = "cyan",lwd=2)
+
+rmse <- sqrt(mean((y_real - p_mars)^2, na.rm = TRUE))
+print(paste("RMSE :", rmse)) # 36.39
+
+
+
+## Modèle SVM----
+library(e1071)
+library(caret)
+# Trouver les hyper-paramètres optimaux
+svm_grid <- expand.grid(C = c(0.1, 1, 10), sigma = c(0.001, 0.01, 0.1))
+svm_model_opt <- train(
+  ts_HKE1567_adj ~ .,
+  data = train,
+  method = "svmRadial",
+  preProcess = c("center", "scale"),
+  tuneGrid = svm_grid
+)
+print(svm_model_opt) # On obtient sigma = 0.01 et C = 10.
+
+svm_model_best <- svm(
+  ts_HKE1567_adj ~ .,
+  data = train,
+  kernel = "radial",
+  sigma = svm_model_opt$bestTune$sigma,
+  cost = svm_model_opt$bestTune$C,
+  scale = TRUE
+)
+p_svm <- predict(svm_model_best, newdata = test)
+p_svm <- as.numeric(p_svm)
+
+rmse <- sqrt(mean((y_real - p_svm) ^ 2))
+print(paste("RMSE :", rmse)) # 47
+
+plot(y_test, type = "l", col = "black",lwd=2, ylim = range((c(y_real))))
+lines(p_mlp, col = "brown")
+lines(p_mars, col = "cyan")
+lines(p_svm, col = "darkgreen",lwd=2)
+
+
+## Modèle Random Forest ----
+library(randomForest)
+set.seed(2)
+n <- nrow(HKE_df)
+train_size <- round(0.8 * n)
+train <- HKE_df[1:train_size, ]
+test <- HKE_df[(train_size+1):n, ]
+rf_model <- randomForest(ts_HKE1567_adj ~ ., data = train, ntree=200)
+p_rf <- predict(rf_model, newdata = test)
+
+rmse <- sqrt(mean((y_real - p_rf)^2))
+print(paste("RMSE :", rmse)) # 39
+
+plot(y_test, type = "l", col = "black",lwd=2, ylim = range(c(y_real)))
+lines(p_mlp, col = "brown")
+lines(p_mars, col = "cyan")
+lines(p_svm, col = "darkgreen")
+lines(p_rf, col = "bisque",lwd=4)
+
+
+
+
+
+
+
+library(gets)
+library(mgcv)
+
+# Note: The first column of your DATAFRAME should be your Y variable
+# DATAFRAME: replace with your dataframe name (DATAFRAME = your_dataframe)
+# Y_VARIABLE: replace with your Y variable name (Y_VARIABLE = your_Y_variable)
+
+eco_models <- function(DATAFRAME, Y_VARIABLE) {
+  
+  # Modele ARX avec GETS----
+  n <- nrow(DATAFRAME)
+  train_size <- round(0.8 * n)
+  train_data <- DATAFRAME[1:train_size, ]
+  test_data <- DATAFRAME[(train_size+1):n, ]
+  mX_train <- data.matrix(train_data[,-1]) 
+  mX_test <- data.matrix(test_data[,-1])  
+  y_train <- train_data$Y_VARIABLE
+  y_test <- test_data$Y_VARIABLE
+  model <- arx(y_train, mc = TRUE, ar = 1, mxreg = mX_train, vcov.type = "ordinary")
+  n_test <- nrow(test_data)
+  p_arxget <- predict(model, n.ahead = n_test, newmxreg = mX_test)
+  p_arxget <- as.numeric(p_arxget)
+  rmse_arxget <- sqrt(mean((y_real - p_arxget)^2, na.rm = TRUE))
+  
+  
+  ## Modele ARX avec auto_arima----
+  split <- round(nrow(DATAFRAME) * 0.8)
+  train_df <- DATAFRAME[1:split, ]
+  test_df <- DATAFRAME[(split+1):nrow(DATAFRAME), ]
+  y_train <- train_df$Y_VARIABLE
+  xreg_train <- data.matrix(train_df[,-1])
+  modelx_train <- auto.arima(y_train, max.q = 0, xreg = xreg_train, seasonal = FALSE, stationary = TRUE)
+  xreg_test <- data.matrix(test_df[,-1])
+  p_arx <- predict(modelx_train, newxreg = xreg_test, n.ahead = nrow(test_df))$pred
+  p_arx <- as.numeric(p_arx)
+  rmse_arx <- sqrt(mean((y_real - p_arx)^2, na.rm = TRUE))
+  
+  
+  ## Modele ARMAX avec auto_arima----
+  split <- round(nrow(DATAFRAME) * 0.8)
+  train_df <- DATAFRAME[1:split, ]
+  test_df <- DATAFRAME[(split+1):nrow(DATAFRAME), ]
+  y_train <- train_df$Y_VARIABLE
+  xreg_train <- data.matrix(train_df[,-1])
+  modelx_train <- auto.arima(y_train, xreg = xreg_train, seasonal = FALSE, stationary = TRUE)
+  j <- ncol(modelx_train$var.coef)
+  tstat <- matrix(nrow=j, ncol=1)
+  for(i in 1:j)
+  {
+    tstat[i,1] <- modelx_train$coef[i]/sqrt(modelx_train$var.coef[i,i])
+  }
+  tstat
+  xreg_test <- data.matrix(test_df[,-1])
+  p_armax <- predict(modelx_train, newxreg = xreg_test, n.ahead = nrow(test_df))$pred
+  p_armax <- as.numeric(p_armax)
+  rmse_armax <- sqrt(mean((y_real - p_armax)^2, na.rm = TRUE))
+  # 
+  # 
+  # ## Naive model----
+  # y_train <- ts(train_df$Y_VARIABLE)
+  # naive_model <- rwf(y_train, h=nrow(test_df))
+  # p_naive <- naive_model$mean
+  # p_naive <-  as.numeric(p_naive)
+  # rmse_naive <- sqrt(mean((y_real - p_naive)^2, na.rm = TRUE))
+  # 
+  # 
+  # ## Model LM----
+  # set.seed(123)
+  # split <- round(nrow(DATAFRAME) * 0.8)
+  # train_df <- DATAFRAME[1:split, ]
+  # test_df <- DATAFRAME[(split+1):nrow(DATAFRAME), ]
+  # model_lm <- lm(Y_VARIABLE ~ ., data = train_df)
+  # p_lm <- predict(model_lm, newdata = test_df)
+  # p_lm <- as.numeric(p_lm)
+  # rmse_lm <- sqrt(mean((y_real - p_lm)^2, na.rm = TRUE))
+  # 
+  # 
+  # ## Model AR1---- 
+  # y <- ts(DATAFRAME$Y_VARIABLE)
+  # model_ar1 <- Arima(y, order = c(1, 0, 0), seasonal = list(order = c(0, 0, 0), period=12),lambda=1)
+  # forecast_ar1 <- forecast(model_ar1, h = 57)
+  # p_ar1 <- forecast_ar1$mean
+  # p_ar1 <- as.numeric(p_ar1)
+  # rmse_ar1 <- sqrt(mean((y_real - p_ar1)^2, na.rm = TRUE))
+  # 
+  # 
+  # ## Model GAM----
+  # set.seed(123)
+  # other_vars <- setdiff(names(train), Y_VARIABLE)
+  # smooth_terms <- paste0("s(", other_vars, ")")
+  # 
+  # model_formula <- reformulate(termlabels = smooth_terms,
+  #                              response = Y_VARIABLE)
+  # model_gam <- gam(model_formula, data = train)
+  # 
+  # p_gam <- predict(model_gam, newdata = test)
+  # p_gam <- as.numeric(p_gam)
+  # 
+  # rmse_gam <- sqrt(mean((y_real - p_gam)^2, na.rm = TRUE))
+}
+
+
+
+test <- function(DATAFRAME, Y_VARIABLE) {
+  print(nrow(DATAFRAME))
+  print(nrow(DATAFRAME$Y_VARIABLE))
+}
+eco_models(HKE_df, ts_HKE1567_adj)
+
+test <- function(DATAFRAME, Y_VARIABLE) {
+  print(nrow(DATAFRAME))
+  print(DATAFRAME$Y_VARIABLE)
+}
+
+
+eco_models <- function(dataframe, y_variable) {
+  
+  # Modele ARX avec GETS----
+  n <- nrow(dataframe)
+  train_size <- round(0.8 * n)
+  train_data <- dataframe[1:train_size, ]
+  test_data <- dataframe[(train_size+1):n, ]
+  mX_train <- data.matrix(train_data[,-1]) 
+  mX_test <- data.matrix(test_data[,-1])  
+  y_train <- train_data$y_variable
+  y_test <- test_data$y_variable
+  model <- arx(y_train, mc = TRUE, ar = 1, mxreg = mX_train, vcov.type = "ordinary")
+  n_test <- nrow(test_data)
+  p_arxget <- predict(model, n.ahead = n_test, newmxreg = mX_test)
+  p_arxget <- as.numeric(p_arxget)
+  rmse_arxget <- sqrt(mean((y_real - p_arxget)^2, na.rm = TRUE))
+  #print(cat("The RMSE of ARXGET model is : ",rmse_arxget))
+  
+  
+}
+
+dataframe <- HKE_df
+y_variable <- HKE_df$ts_HKE1567_adj
+eco_models(dataframe, y_variable)
+
+
+
+ftest <- function(DATAFRAME, Y_VARIABLE) {
+  
+  ## Modele ARMAX avec auto_arima----
+  split <- round(nrow(DATAFRAME) * 0.8)
+  train_df <- DATAFRAME[1:split, ]
+  test_df <- DATAFRAME[(split+1):nrow(DATAFRAME), ]
+  y_train <- train_df[[Y_VARIABLE]]
+  xreg_train <- data.matrix(train_df[,-1])
+  modelx_train <- auto.arima(y_train, xreg = xreg_train, seasonal = FALSE, stationary = TRUE)
+  j <- ncol(modelx_train$var.coef)
+  tstat <- matrix(nrow=j, ncol=1)
+  for(i in 1:j)
+  {
+    tstat[i,1] <- modelx_train$coef[i]/sqrt(modelx_train$var.coef[i,i])
+  }
+  tstat
+  xreg_test <- data.matrix(test_df[,-1])
+  p_armax <- predict(modelx_train, newxreg = xreg_test, n.ahead = nrow(test_df))$pred
+  p_armax <- as.numeric(p_armax)
+  rmse_armax <- sqrt(mean((y_real - p_armax)^2, na.rm = TRUE))
+  print(rmse_armax)
+}
+
+ftest(HKE_df, "ts_HKE1567_adj")
+
+
+DATAFRAME <- HKE_df
+Y_VARIABLE <- "ts_HKE1567_adj"
+ftest(DATAFRAME, Y_VARIABLE)
