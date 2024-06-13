@@ -8,19 +8,18 @@ library(randomForest)
 library(xgboost)
 library(class)
 library(forecast)
+library(tsoutliers)
 
-
-HKE_df <- read.csv("Perso/HKE_df.csv", row.names = 1)
-HKE_df <- HKE_df %>%
-  rename(HKE1567 = ts_HKE1567_adj,
-         ANE = ts_ANE_adj,
-         ARA67 = ts_ARA67_adj,
-         JOD = ts_JOD_adj,
-         MGR = ts_MGR_adj,
-         OCT = ts_OCT_adj,
-         POD = ts_POD_adj,
-         SQZ = ts_SQZ_adj,
-         WEX = ts_WEX_adj)
+library(tidyr)
+df <- read.csv("Perso/landingsV2.csv")
+land_w <- df %>%
+  select(YEAR, quarter, X3A_CODE, totwghtlandg)%>%
+  group_by(YEAR, quarter, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = X3A_CODE, values_from = totwghtlandg) %>%
+  mutate(across(everything(), ~replace_na(., 0)))%>%
+  select(-c(YEAR,quarter))
+  
 
 # TS TRANSFORMATION----
 ts_transfo <- function(DATAFRAME, YEAR, MONTH, FREQUENCY) {
@@ -40,7 +39,7 @@ ts_transfo <- function(DATAFRAME, YEAR, MONTH, FREQUENCY) {
   assign("ts_list", ts_list, envir = .GlobalEnv)
   return(ts_list)
 }
-ts_transfo(HKE_df, 2013, 01, 4)
+ts_transfo(land_w, 2013, 01, 4)
 
 
 
@@ -260,22 +259,27 @@ statio()
 
 # ALLIGN TIME SERIES LENGTH----
 allign_ts <- function() {
-  series_list <- ls(pattern = "^ts_.*_adj$")
+  series_list <- ls(pattern = "^ts_.*_adj$", envir = .GlobalEnv, all.names = TRUE)
   assign("series_list", series_list, envir = .GlobalEnv)
   
-  min_length <- min(sapply(mget(series_list), length))
-  
+  min_length <- Inf
   for (series_name in series_list) {
-    series <- get(series_name)
-    start_index <- length(series) - min_length + 1
-    start_time <- time(series)[start_index]
-    series_trimmed <- window(series, start = start_time)
-    assign(series_name, series_trimmed, envir = .GlobalEnv)
+    series_obj <- get(series_name, envir = .GlobalEnv)
+    series_lengths <- sapply(series_obj, length)
+    min_length <- min(min_length, min(series_lengths, na.rm = TRUE))
   }
   
+  for (series_name in series_list) {
+    series_obj <- get(series_name, envir = .GlobalEnv)
+    series_trimmed <- lapply(series_obj, function(x) {
+      start_index <- length(x) - min_length + 1
+      start_time <- time(x)[start_index]
+      window(x, start = start_time)
+    })
+    assign(series_name, series_trimmed, envir = .GlobalEnv)
+  }
 }
-allign_ts()
-  
+allign_ts()  
   
 # FUNCTION ECO----
 eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
@@ -590,10 +594,8 @@ ml_models <- function(DATAFRAME, Y_VARIABLE){
   
  
 }
-
 eco_models(HKE_df, "ts_HKE1567_adj", 4)
 ml_models(HKE_df, "ts_HKE1567_adj")
-
 
 # FUNCTION PLOT----
 plot_models <- function() {
@@ -691,9 +693,6 @@ plot_models <- function() {
 }
 plot_models()
 
-
-
-
 # INDICATORS COMPUTING----
 indic_models <- function(){
   mse <- sapply(prev_df[, 1:ncol(prev_df)], function(x) mean((prev_df$y_real - x)^2))
@@ -707,7 +706,6 @@ indic_models <- function(){
   
 }
 indic_models()
-
 
 # CPSE PLOTS & VALUES----
 cspe <- function(){
@@ -787,7 +785,6 @@ cspe <- function(){
 }
 cspe()
 
-
 # DIEBOLD MARIANO TEST----
 diebold <- function(){
   
@@ -862,7 +859,6 @@ diebold <- function(){
   
   
 }
-
 diebold()
 
 
