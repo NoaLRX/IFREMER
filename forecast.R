@@ -8,7 +8,7 @@ library(randomForest)
 library(xgboost)
 library(class)
 library(forecast)
-library(dplyr)
+
 
 
 HKE_df <- read.csv("Perso/HKE_df.csv", row.names = 1)
@@ -422,10 +422,12 @@ plot_models <- function() {
   
   print(ml_plot)
   
+  assign("prev_df", prev_df, envir = .GlobalEnv)
+  
 }
 plot_models()
 
-assign("p_gam", p_gam, envir = .GlobalEnv)
+
 
 
 # INDICATORS COMPUTING----
@@ -435,8 +437,8 @@ indic_models <- function(){
   ccsed <- sapply(prev_df[, 1:ncol(prev_df)], function(x) sqrt(sum((cumsum(x - prev_df$y_real))^2)) - sqrt(sum((cumsum(prev_df$ar1 - prev_df$y_real))^2)))
   r2oos <- 1 - mse / mean((prev_df$y_real - prev_df$AR1)^2)
   indic <- data.frame(MSE = mse, RMSE = rmse, CCSED = ccsed, R2_OOS = r2oos)
-  indic
-  assign("indic", indic2, envir = .GlobalEnv)
+  print(indic)
+  assign("indic", indic, envir = .GlobalEnv)
   
   
 }
@@ -520,3 +522,86 @@ cspe <- function(){
   
 }
 cspe()
+
+
+# DIEBOLD MARIANO TEST----
+diebold <- function(){
+  
+  ## CREATING DATA FRAME----
+  dm_test_results <- data.frame(matrix(NA, nrow = 12, ncol = 12))
+  colnames(dm_test_results) <- c("ARMAX", "ARX", "ARX_GETS", "LM","AR1",
+                                 "GAM","MLP","MARS","SVM","RF","XGB","kNN")
+  rownames(dm_test_results) <- c("ARMAX", "ARX", "ARX_GETS", "LM","AR1",
+                                 "GAM","MLP","MARS","SVM","RF","XGB","kNN")
+  
+  
+  diebold_df <- data.frame(Darmax = prev_df$y_real - prev_df$ARMAX,
+                           Darx = prev_df$y_real - prev_df$ARX,
+                           Dlm = prev_df$y_real - prev_df$LM,
+                           Darxget = prev_df$y_real - prev_df$ARX_GET,
+                           Dgam = prev_df$y_real - prev_df$GAM,
+                           Dmlp = prev_df$y_real - prev_df$MLP,
+                           Dmars = prev_df$y_real - prev_df$MARS,
+                           Dsvm = prev_df$y_real - prev_df$SVM,
+                           Drf = prev_df$y_real - prev_df$RF,
+                           Dxgb = prev_df$y_real - prev_df$XGB,
+                           Dknn = prev_df$y_real - prev_df$kNN,
+                           Dar1 = prev_df$y_real - prev_df$AR1)
+  
+  
+  # TESTING // AR1----
+  
+  cat("\n")
+  cat("ARMAX:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Darmax, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nARX:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Darx, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nLM:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Dlm, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nARXGET:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Darxget, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nGAM:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Dgam, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nMLP:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Dmlp, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nMARS:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Dmars, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nSVM:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Dsvm, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nRandom Forest:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Drf, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nXGB:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Dxgb, alternative = "less", h = 1))
+  
+  cat("\n")
+  cat("\nKNN:\n")
+  print(dm.test(diebold_df$Dar1, diebold_df$Dknn, alternative = "less", h = 1))
+  
+  
+  
+}
+
+diebold()
+
+
+
+
+
