@@ -10,9 +10,273 @@ library(class)
 library(forecast)
 
 
-
 HKE_df <- read.csv("Perso/HKE_df.csv", row.names = 1)
+HKE_df <- HKE_df %>%
+  rename(HKE1567 = ts_HKE1567_adj,
+         ANE = ts_ANE_adj,
+         ARA67 = ts_ARA67_adj,
+         JOD = ts_JOD_adj,
+         MGR = ts_MGR_adj,
+         OCT = ts_OCT_adj,
+         POD = ts_POD_adj,
+         SQZ = ts_SQZ_adj,
+         WEX = ts_WEX_adj)
 
+# TS TRANSFORMATION----
+ts_transfo <- function(DATAFRAME, YEAR, MONTH, FREQUENCY) {
+  
+  # Initialize the list to store the time-series
+  ts_list <- list()
+  
+  # Loop over each column of the dataframe
+  for (i in 1:ncol(DATAFRAME)) {
+    col_name <- names(DATAFRAME)[i]
+    ts_name <- paste0("ts_", col_name)
+    ts_data <- ts(data = DATAFRAME[, col_name], start = c(YEAR, MONTH), frequency = FREQUENCY)
+    ts_list[[col_name]] <- ts_data
+    assign(ts_name, ts_data, envir = .GlobalEnv)
+    
+  }
+  assign("ts_list", ts_list, envir = .GlobalEnv)
+  return(ts_list)
+}
+ts_transfo(HKE_df, 2013, 01, 4)
+
+
+
+# ATYPICAL POINTS CORRECTION----
+atypical_tso <- function(){
+  
+  for (col_name in names(ts_list)) {
+    ts_name <- paste0("ts_", col_name)
+    ts_name_tso <- paste0("tso_", col_name)
+    ts_name_adj <- paste0("ts_", col_name, "_adj")  # New name for the adjusted series
+    
+    ts_data <- get(ts_name)
+    
+    # Try ARIMA models
+    arima_fit <- tryCatch({
+      fit <- tso(ts_data)
+      cat("\033[1m\033[31m", "TSO for", col_name, ":\033[0m\n")
+      print(fit)
+      assign(ts_name_tso, fit)
+      assign(ts_name_adj, fit$yadj, envir = .GlobalEnv)  # Assign the adjusted series to a new name
+      
+      # Check if there are atypical points before plotting
+      if (!is.null(fit$outliers) && nrow(fit$outliers) > 0) {
+        plot(fit)
+        title(main = paste("TSO for", col_name))
+      }
+      
+      TRUE
+    }, error = function(e) {
+      cat("\033[1m\033[31m", "Error for", col_name, ":\033[0m\n")
+      cat(e$message, "\n")
+      FALSE
+    })
+    
+    # If ARIMA adjustment fails, go to the next iteration
+    if (!arima_fit) next
+    
+  }
+  
+}
+atypical_tso()
+
+
+# SEASONALITY DETECTION----
+seaso_detect <- function(){
+ 
+   # Initialize lists to store the results
+  seasonal_combined_test <- c()
+  seasonal_seasdum <- c()
+  
+  # Loop over each TS
+  for (col_name in names(ts_list)) {
+    ts_name <- paste0("ts_", col_name, "_adj")  # Name of adjusted time series
+    ts_data <- get(ts_name)  # Retrieve data from the adjusted time series
+    
+    # Apply the combined_test() test to the adjusted time series
+    ct_res <- combined_test(ts_data)
+    
+    # Check each p-value and display results if at least one valid H1
+    ct_results <- ct_res$stat
+    ct_pvals <- ct_res$Pval
+    if (ct_results == TRUE) {
+      cat("\n")
+      cat("\n")
+      print(paste0("Combined_test results for the series ", ts_name))
+      print(ct_res)
+      seasonal_combined_test <- c(seasonal_combined_test, ts_name)
+    }
+    
+    # Apply the seasdum() test to the adjusted time series
+    sd_res <- seasdum(ts_data)
+    
+    # Check p-value and display results if < 0.05
+    if (sd_res$Pval < 0.05) {
+      cat("\n")
+      cat("\n")
+      print(paste0("Résultats du seasdum pour la série ", ts_name))
+      print(sd_res)
+      seasonal_seasdum <- c(seasonal_seasdum, ts_name)
+    }
+  }
+  
+  assign("seasonal_combined_test", seasonal_combined_test, envir = .GlobalEnv)
+  assign("seasonal_seasdum", seasonal_seasdum, envir = .GlobalEnv)
+  
+  
+  # Calculate the differences between the two lists
+  only_combined_test <- setdiff(seasonal_combined_test, seasonal_seasdum)
+  only_seasdum <- setdiff(seasonal_seasdum, seasonal_combined_test)
+  both_tests <- union(only_combined_test, only_seasdum)
+  
+  # Save the results
+  assign("only_combined_test", only_combined_test, envir = .GlobalEnv)
+  assign("only_seasdum", only_seasdum, envir = .GlobalEnv)
+  assign("both_tests", both_tests, envir = .GlobalEnv)
+  
+  # Show differences
+  cat("\n")
+  cat("\n")
+  cat("Seasonality detected only in combined_test function: ", paste(only_combined_test, collapse = ", "), "\n")
+  cat("\n")
+  cat("\n")
+  cat("Seasonality detected only in seasdum function: ", paste(only_seasdum, collapse = ", "), "\n")
+  cat("\n")
+  cat("\n")
+  cat("Seasonality detected in both test: ", paste(both_tests, collapse = ", "), "\n")
+  
+  
+ 
+}
+seaso_detect()
+
+
+# SEASONALITY CORRECTION----
+seaso_correct <- function(){
+  
+  for (ts_name in both_tests) {
+    ts_data <- get(ts_name)  # Retrieve time series data
+    decomp <- stl(ts_data, s.window = "periodic")  # STL decomposition
+    seasonal <- decomp$time.series[, "seasonal"]  # Get the seasonal component
+    ts_data_adjusted <- ts_data - seasonal  # Correcting the seasonal component
+    assign(ts_name, ts_data_adjusted, envir = .GlobalEnv)  # Update the adjusted time series
+  }
+}
+seaso_correct()
+
+
+# SEASONALITY VERIFICATION----
+seaso_verif <- function(){
+  
+  # Initialize lists to store the results
+  seasonal_combined_test_after <- c()
+  seasonal_seasdum_after <- c()
+  
+  for (ts_name in both_tests) {
+    ts_data <- get(ts_name)  # Retrieve data from the adjusted time series
+    
+    # Apply the combined_test() test to the adjusted time series
+    ct_res <- combined_test(ts_data)
+    
+    # Check each p-value and display results if at least one is < 0.05
+    ct_pvals <- ct_res$Pval
+    ct_results <- ct_res$stat
+    if (ct_results == TRUE) {
+      cat(bold(underline("\033[1m\033[31m", "Corrected combined_test results for the series ", ts_name, ":\033[0m\n")))
+      print(ct_res)
+      seasonal_combined_test_after <- c(seasonal_combined_test_after, ts_name)
+    }
+    
+    # Apply the seasdum() test to the adjusted time series
+    sd_res <- seasdum(ts_data)
+    
+    # Check and print results if p<0.05
+    if (sd_res$Pval < 0.05) {
+      cat(bold(underline("\033[1m\033[31m", "Results of Seasdum after correction for the TS: ", ts_name, ":\033[0m\n")))
+      print(sd_res)
+      seasonal_seasdum_after <- c(seasonal_seasdum_after, ts_name)
+    }
+  }
+  
+  
+  cat(bold("\nSeries still showing seasonality according to combined_test after correction:\n"))
+  print(seasonal_combined_test_after)
+  
+  cat(bold("\nSeries still showing seasonality according to seasdum after correction:\n"))
+  print(seasonal_seasdum_after)
+}
+seaso_verif()
+
+
+# STATIONARITY VERIFICATION----
+statio <- function() {
+  # Stationarity----
+  for (i in names(ts_list)) {
+    ts_name <- paste0("ts_", i, "_adj")  # Name of the TS
+    adf_result <- adf.test(get(ts_name))  # Apply ADF test for stationnarity
+    adf_result
+    
+    # Check if P-Value > 0.05
+    if (adf_result$p.value > 0.05) {
+      # Apply a difference to the time series if it is not stationary
+      assign(ts_name, diff(get(ts_name)), envir = .GlobalEnv)
+      print(paste("The TS", ts_name, "has been differentiated"))
+    }
+    else {
+      print(paste("The TS", ts_name, "is stationary"))
+    }
+  }
+  
+  # Differentiate a second time if necessary
+  for (i in names(ts_list)) {
+    ts_name <- paste0("ts_", i, "_adj")  # Name of the TS
+    adf_result <- adf.test(get(ts_name))  # Apply ADF test for stationnarity
+    adf_result
+    # Check if P-Value > 0.05
+    if (adf_result$p.value > 0.05) {
+      print(paste("The TS", ts_name, "is still not stationary"))
+      # Apply a difference to the time series if it is not stationary
+      assign(ts_name, diff(get(ts_name)), envir = .GlobalEnv)
+      print(paste("The TS", ts_name, "has been differentiated a second time"))
+    }
+  }
+  
+  
+  for (i in names(ts_list)) {
+    ts_name <- paste0("ts_", i, "_adj")  # Name of the TS
+    adf_result <- adf.test(get(ts_name))  # Apply ADF test for stationnarity
+    adf_result
+    if (adf_result$p.value > 0.05) {
+      # Check if P-Value > 0.05
+      print(paste("La série", ts_name, "is still not stationary"))
+    }
+  }
+  
+}
+statio()
+
+# ALLIGN TIME SERIES LENGTH----
+allign_ts <- function() {
+  series_list <- ls(pattern = "^ts_.*_adj$")
+  assign("series_list", series_list, envir = .GlobalEnv)
+  
+  min_length <- min(sapply(mget(series_list), length))
+  
+  for (series_name in series_list) {
+    series <- get(series_name)
+    start_index <- length(series) - min_length + 1
+    start_time <- time(series)[start_index]
+    series_trimmed <- window(series, start = start_time)
+    assign(series_name, series_trimmed, envir = .GlobalEnv)
+  }
+  
+}
+allign_ts()
+  
+  
 # FUNCTION ECO----
 eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
   
