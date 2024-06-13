@@ -7,25 +7,22 @@ library(caret)
 library(randomForest)
 library(xgboost)
 library(class)
-
-########################### PLEASE READ ME ####################################
-################################################################################
-# This script contains two functions that use different forecasting models. 
-# The first "eco_models" function uses 6 econometric forecasting models, while 
-# the second "ml_models" function uses 6 Machine Learning and Deep Learning models.
-
-# To use the functions, you need to have a dataframe with your Y variable and
-# your X variables. Note that your Y variable should be the first columns of the dataframe.
-
-# The functions only take two arguments: your dataframe with all your variables
-# (DATAFRAME) and the name of the Y variable column from your dataframe (Y_VARIABLE).
-# For example if I have a dataframe called "df" whose first columns is my Y variable
-# df$Y_variable, then I can use the function by typing eco_models(df, "Y_variable")
-################################################################################
-################################################################################
+library(forecast)
+library(dplyr)
 
 
-eco_models <- function(DATAFRAME, Y_VARIABLE){
+HKE_df <- read.csv("Perso/HKE_df.csv", row.names = 1)
+
+# FUNCTION ECO----
+eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
+  
+  n <- nrow(DATAFRAME)
+  train_size <- round(0.8 * n)
+  train_data <- DATAFRAME[1:train_size, ]
+  test_data <- DATAFRAME[(train_size + 1):n, ]
+  y_real <- test_data[[Y_VARIABLE]]
+  
+  
   # ARX model with Gets----
   n <- nrow(DATAFRAME)
   train_size <- round(0.8 * n)
@@ -102,9 +99,9 @@ eco_models <- function(DATAFRAME, Y_VARIABLE){
   
   ## AR1 model----
   y <- ts(DATAFRAME[[Y_VARIABLE]])
-  model_ar1 <- Arima(y, order = c(1, 0, 0), seasonal = list(order = c(0, 0, 0), period=12),lambda=1)
-  forecast_ar1 <- forecast(model_ar1, h = 57)
-  p_ar1 <- forecast_ar1$mean
+  model_ar1 <- Arima(y, order = c(1, 0, 0), seasonal = list(order = c(0, 0, 0), period = PERIOD), lambda = 1)
+  forecast_ar1 <- forecast(model_ar1, h = nrow(test_data))
+  p_ar1 <- forecast_ar1$mean[1:length(y_real)]
   p_ar1 <- as.numeric(p_ar1)
   rmse_ar1 <- sqrt(mean((y_real - p_ar1)^2, na.rm = TRUE))
   print(paste("RMSE AR1: ", rmse_ar1))
@@ -113,7 +110,7 @@ eco_models <- function(DATAFRAME, Y_VARIABLE){
   ## GAM model----
   ## Data preparation
   set.seed(123)
-  smp_size <- ceiling(0.80 * nrow(DATAFRAME))
+  smp_size <- floor(0.80 * nrow(DATAFRAME))
   train_ind <- sample(seq_len(nrow(DATAFRAME)), size = smp_size)
   train <- DATAFRAME[train_ind, ]
   test <- DATAFRAME[-train_ind, ]
@@ -132,8 +129,24 @@ eco_models <- function(DATAFRAME, Y_VARIABLE){
   rmse_gam <- sqrt(mean((y_real - p_gam)^2, na.rm = TRUE))
   print(paste("RMSE GAM :", rmse_gam))
   
+  
+  # Create a list to store the results
+  results <- list()
+  
+  # Store the results in the R Global Environment
+  assign("y_real", y_real, envir = .GlobalEnv)
+  assign("p_arxget", p_arxget, envir = .GlobalEnv)
+  assign("p_arx", p_arx, envir = .GlobalEnv)
+  assign("p_armax", p_armax, envir = .GlobalEnv)
+  assign("p_naive", p_naive, envir = .GlobalEnv)
+  assign("p_lm", p_lm, envir = .GlobalEnv)
+  assign("p_ar1", p_ar1, envir = .GlobalEnv)
+  assign("p_gam", p_gam, envir = .GlobalEnv)
+  
+  
 }
 
+# FUNCTION ML----
 ml_models <- function(DATAFRAME, Y_VARIABLE){
   
   ## MLP model----
@@ -212,6 +225,10 @@ ml_models <- function(DATAFRAME, Y_VARIABLE){
   
   
   # XGB BOOST----
+  zz <- file("xgb_warnings.txt", open = "wt")
+  sink(zz, type = "output")
+  
+  
   n <- nrow(DATAFRAME)
   train_size <- round(0.8 * n)
   train <- DATAFRAME[1:train_size, ]
@@ -256,7 +273,14 @@ ml_models <- function(DATAFRAME, Y_VARIABLE){
   
   p_xgb <- predict(xgb_model_opt, newdata = dtest)
   p_xgb <- as.numeric(p_xgb)
+
+  # Close the file and restore the output to the console
+  sink()
+  if (!isOpen(zz)) {
+    close(zz)
+  }
   
+  # Print results
   rmse_xgb <- sqrt(mean((y_real - p_xgb) ^ 2))
   print(paste("RMSE for XGB:", rmse_xgb))
   
@@ -291,58 +315,208 @@ ml_models <- function(DATAFRAME, Y_VARIABLE){
   
   rmse_knn <- sqrt(mean((y_real - p_knn)^2))
   print(paste("RMSE for kNN:", rmse_knn))
+  
+  # Store the results in the R Global Environment
+  assign("p_mlp", p_mlp, envir = .GlobalEnv)
+  assign("p_mars", p_mars, envir = .GlobalEnv)
+  assign("p_svm", p_svm, envir = .GlobalEnv)
+  assign("p_rf", p_rf, envir = .GlobalEnv)
+  assign("p_xgb", p_xgb, envir = .GlobalEnv)
+  assign("p_knn", p_knn, envir = .GlobalEnv)
+  
+ 
 }
 
-
-
-eco_models(HKE_df, "ts_HKE1567_adj")
+eco_models(HKE_df, "ts_HKE1567_adj", 4)
 ml_models(HKE_df, "ts_HKE1567_adj")
 
 
-# Probleme avec le modele GAM qui projette sur 7 valeurs au lieu de 8
-prev_df <- data.frame(
-  ARMAX = p_armax,
-  ARX = p_arx,
-  LM = p_lm,
-  ARX_GET = p_arxget,
-  #AR1 = p_ar1,
-  GAM = p_gam,
-  LM = p_lm,
-  MLP = p_mlp,
-  MARS = p_mars,
-  SVM = p_svm,
-  RF = p_rf,
-  XGB = p_xgb,
-  #kNN = p_knn,
-  #LSTM = p_lstm,
-  y_real = y_real
-)
+# FUNCTION PLOT----
+plot_models <- function() {
+  ## Create the results dataframe----
+  prev_df <- data.frame(
+    ARMAX = p_armax,
+    ARX = p_arx,
+    LM = p_lm,
+    ARX_GET = p_arxget,
+    AR1 = p_ar1,
+    GAM = p_gam,
+    LM = p_lm,
+    MLP = p_mlp,
+    MARS = p_mars,
+    SVM = p_svm,
+    RF = p_rf,
+    XGB = p_xgb,
+    kNN = p_knn,
+    y_real = y_real
+  )
+  
+  prev_df$id <- seq.int(nrow(prev_df))
+  
+  ## Plot Econometrics Models----
+  eco_plot <- ggplot(prev_df, aes(x = id, group = 1)) +
+    geom_line(aes(y = y_real, color = "Observé"),
+              size = 2,
+              show.legend = TRUE) +
+    geom_line(aes(y = ARMAX, color = "ARMAX"),
+              size = 1,
+              alpha = 0.7) +
+    geom_line(aes(y = ARX, color = "ARX"), size = 1, alpha = 0.7) +
+    geom_line(aes(y = LM, color = "LM"), size = 1, alpha = 0.7) +
+    geom_line(aes(y = ARX_GET, color = "ARX_GETS"),
+              size = 1,
+              alpha = 0.7) +
+    geom_line(aes(y = AR1, color = "AR1"), size = 1, alpha = 0.7) +
+    scale_color_manual(
+      values = c(
+        "Observé" = "black",
+        "ARMAX" = "purple",
+        "ARX" = "green",
+        "LM" = "darkblue",
+        "NAIVE" = "orange",
+        "ARX_GETS" = "red",
+        "AR1" = "darkcyan"
+      )
+    ) +
+    labs(x = "Time", y = "HKE LPUE Forecast", color = "Models") +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+    ggtitle("Econometrics models forecasting")
+  
+  print(eco_plot)
+  
+  
+  ## Plot ML Models----
+  ml_plot <- ggplot(prev_df, aes(x = id, group = 1)) +
+    geom_line(aes(y = y_real, color = "Observé"),
+              size = 2,
+              show.legend = TRUE) +
+    geom_line(aes(y = GAM, color = "GAM"), size = 1, alpha = 1) +
+    geom_line(aes(y = MLP, color = "MLP"), size = 1, alpha = 0.7) +
+    geom_line(aes(y = MARS, color = "MARS"),
+              size = 1,
+              alpha = 0.7) +
+    geom_line(aes(y = SVM, color = "SVM"), size = 1, alpha = 0.7) +
+    geom_line(aes(y = RF, color = "RF"), size = 1, alpha = 0.7) +
+    geom_line(aes(y = XGB, color = "XGB"), size = 1, alpha = 0.7) +
+    geom_line(aes(y = kNN, color = "kNN"), size = 1, alpha = 0.7) +
+    scale_color_manual(
+      values = c(
+        "Observé" = "black",
+        "GAM" = "purple",
+        "MLP" = "green",
+        "MARS" = "darkblue",
+        "SVM" = "orange",
+        "RF" = "red",
+        "XGB" = "cyan",
+        "kNN" = "magenta1",
+        "LSTM" = "grey",
+        "LSTM_CNN" = "indianred",
+        "TDNN" = "gold"
+      )
+    ) +
+    labs(x = "Temps", y = "HKE LPUE Forecast", color = "Models") +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+    ggtitle("Machine-Learning models forecasting")
+  
+  print(ml_plot)
+  
+}
+plot_models()
+
+assign("p_gam", p_gam, envir = .GlobalEnv)
 
 
+# INDICATORS COMPUTING----
+indic_models <- function(){
+  mse <- sapply(prev_df[, 1:ncol(prev_df)], function(x) mean((prev_df$y_real - x)^2))
+  rmse <- sqrt(mse)
+  ccsed <- sapply(prev_df[, 1:ncol(prev_df)], function(x) sqrt(sum((cumsum(x - prev_df$y_real))^2)) - sqrt(sum((cumsum(prev_df$ar1 - prev_df$y_real))^2)))
+  r2oos <- 1 - mse / mean((prev_df$y_real - prev_df$AR1)^2)
+  indic <- data.frame(MSE = mse, RMSE = rmse, CCSED = ccsed, R2_OOS = r2oos)
+  indic
+  assign("indic", indic2, envir = .GlobalEnv)
+  
+  
+}
+indic_models()
 
 
-
-
-## GAM model----
-## Data preparation
-set.seed(123)
-smp_size <- ceiling(0.80 * nrow(HKE_df))
-train_ind <- sample(seq_len(nrow(HKE_df)), size = smp_size)
-train <- HKE_df[train_ind, ]
-test <- HKE_df[-train_ind, ]
-
-other_vars <- setdiff(names(train), ts_HKE1567_adj)
-smooth_terms <- paste0("s(", other_vars, ")")
-model_formula <- reformulate(termlabels = smooth_terms, response = ts_HKE1567_adj)
-
-model_gam <- gam(model_formula, data = train)
-
-## Prediction and RMSE calculation
-p_gam <- predict(model_gam, newdata = test)
-p_gam <- as.numeric(p_gam)
-length(p_gam)
-length(test)
-y_real <- test[[ts_HKE1567_adj]]
-
-rmse_gam <- sqrt(mean((y_real - p_gam)^2, na.rm = TRUE))
-print(paste("RMSE GAM :", rmse_gam))
+# CPSE PLOTS & VALUES----
+cspe <- function(){
+  ## COMPUTE CSPE VALUES----
+  prev_df$CSPEarmax <- cumsum((prev_df$y_real - prev_df$ARMAX)^2)
+  prev_df$CSPEarx <- cumsum((prev_df$y_real - prev_df$ARX)^2)
+  prev_df$CSPElm <- cumsum((prev_df$y_real - prev_df$LM)^2)
+  prev_df$CSPEarxget <- cumsum((prev_df$y_real - prev_df$ARX_GET)^2)
+  prev_df$CSPEar1 <- cumsum((prev_df$y_real - prev_df$AR1)^2)
+  prev_df$CSPEGAM <- cumsum((prev_df$y_real - prev_df$GAM)^2)
+  prev_df$CSPEMLP <- cumsum((prev_df$y_real - prev_df$MLP)^2)
+  prev_df$CSPEMARS <- cumsum((prev_df$y_real - prev_df$MARS)^2)
+  prev_df$CSPESVM <- cumsum((prev_df$y_real - prev_df$SVM)^2)
+  prev_df$CSPERF <- cumsum((prev_df$y_real - prev_df$RF)^2)
+  prev_df$CSPEXGB <- cumsum((prev_df$y_real - prev_df$XGB)^2)
+  prev_df$CSPEkNN <- cumsum((prev_df$y_real - prev_df$kNN)^2)
+  
+  ## PLOTTING----
+  ### GENERAL PLOT
+  ggplot(prev_df, aes(x = id, group = 1)) +
+    geom_line(aes(y = CSPEarmax, color = "ARMAX"), size = 1) +
+    geom_line(aes(y = CSPEarx, color = "ARX"), size = 1) +
+    geom_line(aes(y = CSPElm, color = "LM"), size = 1) +
+    geom_line(aes(y = CSPEarxget, color = "ARX_GETS"), size = 1) +
+    geom_line(aes(y = CSPEar1, color = "AR1"), size = 1) +
+    geom_line(aes(y = CSPEGAM, color = "GAM"), size = 1) +
+    geom_line(aes(y = CSPEMLP, color = "MLP"), size = 1) +
+    geom_line(aes(y = CSPEMARS, color = "MARS"), size = 1) +
+    geom_line(aes(y = CSPESVM, color = "SVM"), size = 1) +
+    geom_line(aes(y = CSPERF, color = "RF"), size = 1) +
+    geom_line(aes(y = CSPEXGB, color = "XGB"), size = 1) +
+    geom_line(aes(y = CSPEkNN, color = "kNN"), size = 1) +
+    scale_color_manual(
+      values = c(
+        "ARMAX" = "purple",
+        "ARX" = "green",
+        "LM" = "darkblue",
+        "NAIVE" = "orange",
+        "ARX_GETS" = "cyan",
+        "AR1" = "red",
+        "GAM" = "gold2",
+        "MLP" = "grey",
+        "MARS" = "pink",
+        "SVM" = "brown",
+        "RF" = "darkgreen",
+        "XGB" = "blue",
+        "kNN" = "magenta",
+        "LSTM" = "chocolate1",
+        "LSTMCNN" = "black",
+        "TDNN" = "seagreen2"
+      )
+    ) +
+    labs(x = "Time", y = "CSPE", color = "Models") +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+    ggtitle(" All models CSPE's")
+  
+  ### ML VS ECO MODELS PLOT
+  ggplot(prev_df, aes(x=id, group=1)) +
+    geom_line(aes(y=CSPEarmax, color="Econometrics"), size=1,alpha=0.7) +
+    geom_line(aes(y=CSPEarx, color="Econometrics"), size=1,alpha=0.7) +
+    geom_line(aes(y=CSPElm, color="Econometrics"), size=1,alpha=0.7) +
+    geom_line(aes(y=CSPEarxget, color="Econometrics"), size=1,alpha=0.7) +
+    geom_line(aes(y=CSPEGAM, color="Econometrics"), size=1,alpha=0.7) +
+    geom_line(aes(y = CSPEMLP, color = "Machine-Learning"), size = 1,alpha=0.7) +
+    geom_line(aes(y = CSPEMARS, color = "Machine-Learning"), size = 1,alpha=0.7) +
+    geom_line(aes(y = CSPESVM, color = "Machine-Learning"), size = 1,alpha=0.7) +
+    geom_line(aes(y = CSPERF, color = "Machine-Learning"), size = 1,alpha=0.7) +
+    geom_line(aes(y = CSPEXGB, color = "Machine-Learning"), size = 1,alpha=0.7) +
+    geom_line(aes(y = CSPEkNN, color = "Machine-Learning"), size = 1,alpha=0.7) +
+    scale_color_manual("", values=c("Econometrics" = "blue", "Machine-Learning" = "red"))+
+    labs(x = "Time", y = "CSPE", color = "Models") +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+    ggtitle(" Machine-Learning vs Econometrics models CSPE's")
+  
+}
+cspe()

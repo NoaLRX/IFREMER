@@ -9,6 +9,8 @@ library(crayon)
 library(leaps)
 library(gets)
 library(forecast)
+library(lubridate)
+library(ggplot2)
 
 # Load data framee
 landingsV2 <- read.csv("Perso/landingsV2.csv")
@@ -378,6 +380,7 @@ HKE_df <- ts_df %>%
   select(ts_HKE1567_adj, ts_ANE_adj, ts_ARA67_adj, ts_JOD_adj, ts_MGR_adj, 
          ts_OCT_adj, ts_POD_adj, ts_SQZ_adj, ts_WEX_adj)
 
+write.csv(HKE_df, "Perso/HKE_df.csv")
 y_real <- tail(HKE_df$ts_HKE1567_adj, n=8)
 y_real <- as.numeric(y_real)
 
@@ -547,10 +550,10 @@ test <- HKE_df[(train_size+1):n, ]
 mars_model <- earth(ts_HKE1567_adj ~ ., data = train)
 p_mars <- predict(mars_model, newdata = test)
 p_mars <- as.numeric(p_mars)
-
-plot(y_test, type = "l", col = "black",lwd=2, ylim = range((c(y_real))))
-lines(p_mlp, col = "brown")
-lines(p_mars, col = "cyan",lwd=2)
+# 
+# plot(y_test, type = "l", col = "black",lwd=2, ylim = range((c(y_real))))
+# lines(p_mlp, col = "brown")
+# lines(p_mars, col = "cyan",lwd=2)
 
 rmse <- sqrt(mean((y_real - p_mars)^2, na.rm = TRUE))
 print(paste("RMSE :", rmse)) # 36.39
