@@ -1,4 +1,5 @@
 library(gets)
+library(seastests)
 library(mgcv)
 library(neuralnet)
 library(earth)
@@ -9,8 +10,11 @@ library(xgboost)
 library(class)
 library(forecast)
 library(tsoutliers)
-
+library(dplyr)
 library(tidyr)
+library(crayon)
+library(tseries)
+
 df <- read.csv("Perso/landingsV2.csv")
 land_w <- df %>%
   select(YEAR, quarter, X3A_CODE, totwghtlandg)%>%
@@ -45,11 +49,12 @@ ts_transfo(land_w, 2013, 01, 4)
 
 # ATYPICAL POINTS CORRECTION----
 atypical_tso <- function(){
+  ts_list_adj <- list()  # Initialize the new list
   
   for (col_name in names(ts_list)) {
     ts_name <- paste0("ts_", col_name)
     ts_name_tso <- paste0("tso_", col_name)
-    ts_name_adj <- paste0("ts_", col_name, "_adj")  # New name for the adjusted series
+    ts_name_adj <- paste0("ts_", col_name, "_adj")
     
     ts_data <- get(ts_name)
     
@@ -59,7 +64,10 @@ atypical_tso <- function(){
       cat("\033[1m\033[31m", "TSO for", col_name, ":\033[0m\n")
       print(fit)
       assign(ts_name_tso, fit)
-      assign(ts_name_adj, fit$yadj, envir = .GlobalEnv)  # Assign the adjusted series to a new name
+      assign(ts_name_adj, fit$yadj, envir = .GlobalEnv)
+      
+      # Add the adjusted series to ts_list_adj
+      ts_list_adj[[col_name]] <- fit$yadj
       
       # Check if there are atypical points before plotting
       if (!is.null(fit$outliers) && nrow(fit$outliers) > 0) {
@@ -79,7 +87,10 @@ atypical_tso <- function(){
     
   }
   
+  # Assign ts_list_adj to the global environment
+  assign("ts_list_adj", ts_list_adj, envir = .GlobalEnv)
 }
+
 atypical_tso()
 
 
@@ -91,7 +102,7 @@ seaso_detect <- function(){
   seasonal_seasdum <- c()
   
   # Loop over each TS
-  for (col_name in names(ts_list)) {
+  for (col_name in names(ts_list_adj)) {
     ts_name <- paste0("ts_", col_name, "_adj")  # Name of adjusted time series
     ts_data <- get(ts_name)  # Retrieve data from the adjusted time series
     
@@ -158,7 +169,7 @@ seaso_correct <- function(){
   
   for (ts_name in both_tests) {
     ts_data <- get(ts_name)  # Retrieve time series data
-    decomp <- stl(ts_data, s.window = "periodic")  # STL decomposition
+    decomp <- stl(ts_data[,1], s.window = "periodic")  # STL decomposition
     seasonal <- decomp$time.series[, "seasonal"]  # Get the seasonal component
     ts_data_adjusted <- ts_data - seasonal  # Correcting the seasonal component
     assign(ts_name, ts_data_adjusted, envir = .GlobalEnv)  # Update the adjusted time series
@@ -213,7 +224,7 @@ seaso_verif()
 # STATIONARITY VERIFICATION----
 statio <- function() {
   # Stationarity----
-  for (i in names(ts_list)) {
+  for (i in names(ts_list_adj)) {
     ts_name <- paste0("ts_", i, "_adj")  # Name of the TS
     adf_result <- adf.test(get(ts_name))  # Apply ADF test for stationnarity
     adf_result
@@ -230,7 +241,7 @@ statio <- function() {
   }
   
   # Differentiate a second time if necessary
-  for (i in names(ts_list)) {
+  for (i in names(ts_list_adj)) {
     ts_name <- paste0("ts_", i, "_adj")  # Name of the TS
     adf_result <- adf.test(get(ts_name))  # Apply ADF test for stationnarity
     adf_result
@@ -244,13 +255,21 @@ statio <- function() {
   }
   
   
-  for (i in names(ts_list)) {
+  for (i in names(ts_list_adj)) {
     ts_name <- paste0("ts_", i, "_adj")  # Name of the TS
     adf_result <- adf.test(get(ts_name))  # Apply ADF test for stationnarity
     adf_result
     if (adf_result$p.value > 0.05) {
       # Check if P-Value > 0.05
-      print(paste("La série", ts_name, "is still not stationary"))
+      cat(bold(
+        underline(
+          "\033[1m\033[31m",
+          "The time serie ",
+          ts_name,
+          "is still not stationnary",
+          ":\033[0m\n"
+        )
+      ))
     }
   }
   
@@ -260,6 +279,7 @@ statio()
 # ALLIGN TIME SERIES LENGTH----
 allign_ts <- function() {
   series_list <- ls(pattern = "^ts_.*_adj$", envir = .GlobalEnv, all.names = TRUE)
+  series_list <- series_list[series_list != "ts_list_adj"]
   assign("series_list", series_list, envir = .GlobalEnv)
   
   min_length <- Inf
@@ -279,7 +299,31 @@ allign_ts <- function() {
     assign(series_name, series_trimmed, envir = .GlobalEnv)
   }
 }
-allign_ts()  
+allign_ts()
+
+# CREATE DATAFRAME OF TS----
+# Créer une liste pour stocker toutes les séries temporelles
+all_series <- list()
+
+# Ajouter chaque série à la liste, en extrayant les valeurs numériques
+for (x in series_list) {
+  series <- get(x)
+  all_series[[x]] <- series
+}
+
+# Convertir la liste en dataframe
+df2 <- data.frame(all_series, check.names = FALSE)
+
+
+# Ajouter une colonne de date si nécessaire (ajustez selon votre série temporelle)
+df2$date <- seq(as.Date("2014-01-01"), by = "quarter", length.out = nrow(df2))
+
+# Vérifier les noms des colonnes
+print(names(df2))
+
+
+
+
   
 # FUNCTION ECO----
 eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
@@ -413,6 +457,7 @@ eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
   
   
 }
+eco_models(HKE_df, "ts_HKE1567_adj", 4)
 
 # FUNCTION ML----
 ml_models <- function(DATAFRAME, Y_VARIABLE){
@@ -594,7 +639,6 @@ ml_models <- function(DATAFRAME, Y_VARIABLE){
   
  
 }
-eco_models(HKE_df, "ts_HKE1567_adj", 4)
 ml_models(HKE_df, "ts_HKE1567_adj")
 
 # FUNCTION PLOT----
