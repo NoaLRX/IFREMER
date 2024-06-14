@@ -23,7 +23,7 @@ land_w <- df %>%
   pivot_wider(names_from = X3A_CODE, values_from = totwghtlandg) %>%
   mutate(across(everything(), ~replace_na(., 0)))%>%
   select(-c(YEAR,quarter))
-  
+
 
 # TS TRANSFORMATION----
 ts_transfo <- function(DATAFRAME, YEAR, MONTH, FREQUENCY) {
@@ -302,29 +302,52 @@ allign_ts <- function() {
 allign_ts()
 
 # CREATE DATAFRAME OF TS----
-# Créer une liste pour stocker toutes les séries temporelles
-all_series <- list()
-
-# Ajouter chaque série à la liste, en extrayant les valeurs numériques
-for (x in series_list) {
-  series <- get(x)
-  all_series[[x]] <- series
-}
-
-# Convertir la liste en dataframe
-df2 <- data.frame(all_series, check.names = FALSE)
-
-
-# Ajouter une colonne de date si nécessaire (ajustez selon votre série temporelle)
-df2$date <- seq(as.Date("2014-01-01"), by = "quarter", length.out = nrow(df2))
-
-# Vérifier les noms des colonnes
-print(names(df2))
-
-
-
-
+create_df <- function() {
+  ts_to_df <- function(ts_obj, series_name) {
+    if (is.null(ts_obj$y)) {
+      df <- as.data.frame(ts_obj)
+    } else {
+      df <- as.data.frame(ts_obj$y)
+    }
+    df$Year <- as.numeric(rownames(df))
+    
+    if (ncol(df) == 2) {
+      names(df)[1] <- series_name
+      df$Quarter <- "Annual"
+    } else {
+      df_long <- tidyr::pivot_longer(
+        df,
+        cols = -Year,
+        names_to = "Quarter",
+        values_to = series_name
+      )
+      df <- df_long
+    }
+    
+    return(df)
+  }
   
+  first_series <- get(series_list[1])
+  result_df <- ts_to_df(first_series, series_list[1])
+  
+  for (series_name in series_list[-1]) {
+    ts_obj <- get(series_name)
+    
+    df <- ts_to_df(ts_obj, series_name)
+    
+    result_df <- merge(result_df,
+                       df,
+                       by = c("Year", "Quarter"),
+                       all = TRUE)
+  }
+  
+  result_df <- result_df[order(result_df$Year, result_df$Quarter), ]
+  
+  result_df <- result_df[, c(series_list)]
+  
+}
+create_df()
+
 # FUNCTION ECO----
 eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
   
@@ -457,7 +480,7 @@ eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
   
   
 }
-eco_models(HKE_df, "ts_HKE1567_adj", 4)
+eco_models(df, "V1", 4)
 
 # FUNCTION ML----
 ml_models <- function(DATAFRAME, Y_VARIABLE){
@@ -639,7 +662,7 @@ ml_models <- function(DATAFRAME, Y_VARIABLE){
   
  
 }
-ml_models(HKE_df, "ts_HKE1567_adj")
+ml_models(result_df, "ts_HKE1567_adj")
 
 # FUNCTION PLOT----
 plot_models <- function() {
@@ -904,8 +927,4 @@ diebold <- function(){
   
 }
 diebold()
-
-
-
-
 
