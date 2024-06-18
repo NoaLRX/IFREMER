@@ -321,3 +321,4 @@ fig <- subplot(
   )
 # Display the figure
 fig
+#htmlwidgets::saveWidget(fig, "index.html", selfcontained = TRUE)
