@@ -18,7 +18,7 @@ library(waffle)
 library(showtext)
 library(ggtext)
 library(markdown)
-
+library(forcats)
 
 
 #' Warning: This code is the French version of the script, we are only looking
@@ -1821,240 +1821,233 @@ top_10_species <- top_10_species %>%
 #' The idea here is to create a diagram with the different vessels, size, gears
 #' and the amount (in term of kg landings) they fish
 
-#' ## 2013:2022----
-#' #' Because we have a lot of data, we need to filter a bit. Let's represent
-#' #' only the most important taxons in term of landings kg.
-#' 
-#' select <- landings %>%
-#'   select(X3A_CODE, totwghtlandg) %>%
-#'   group_by(X3A_CODE) %>%
-#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-#'   arrange(desc(totwghtlandg))
-#' 
-#' # Let's take the  most important species in term of landings kg across 2013:2022
-#' tentaxons <- unique(head(select["X3A_CODE"], n=10))
-#' tentaxons <- unlist(tentaxons)
-#' 
-#' select2 <- landings %>%
-#'   select(FleetIAM, totwghtlandg) %>%
-#'   group_by(FleetIAM) %>%
-#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-#'   arrange(desc(totwghtlandg))
-#' 
-#' # Let's take the  most important fleet in term of landings kg across 2013:2022
-#' tenfleets <- unique(head(select2["FleetIAM"], n=6))
-#' tenfleets <- unlist(tenfleets)
-#' 
-#' sankey <- landings %>%
-#'   filter (COUNTRY == "FRA") %>%
-#'   filter (X3A_CODE %in% tentaxons) %>%
-#'   filter (FleetIAM %in% tenfleets) %>%
-#'   select (FleetIAM, X3A_CODE,totwghtlandg) %>%
-#'   group_by(FleetIAM, X3A_CODE) %>%
-#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
-#' 
-#' 
-#' # Graph: From Fleets to Species
-#' output_file <- "Figures/FRA/Sankey/sankey_dependALL.pdf"
-#' pdf(output_file, width = 12, height = 10)
-#' 
-#' ggplot(data = sankey,
-#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-#'   geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
-#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-#'   geom_stratum()+ # Categories blocks
-#'   geom_text(stat = "stratum",
-#'             aes(label = after_stat(stratum))) + # Categories block's names
-#'   ggtitle("Fleets dependencies to each species",
-#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2013 to 2022")+
-#'   theme_void() +
-#'   theme(
-#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-#'   )+
-#'   guides(fill=FALSE) # No Legend
-#' 
-#' dev.off()
-#' 
-#' 
-#' # Graph:From Species to Fleets
-#' output_file <- "Figures/FRA/Sankey/sankey_contribALL.pdf"
-#' pdf(output_file, width = 12, height = 10)
-#' 
-#' ggplot(data = sankey,
-#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-#'   geom_alluvium(aes(fill = X3A_CODE),# Link goes from Species to Fleets
-#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-#'   geom_stratum()+ # Categories blocks
-#'   geom_text(stat = "stratum",
-#'             aes(label = after_stat(stratum))) + # Categories block's names
-#'   ggtitle("Contribution of each species to landings of each fleets",
-#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2013 to 2022")+
-#'   theme_void() +
-#'   theme(
-#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-#'   )+
-#'   guides(fill=FALSE) # No Legend
-#' 
-#' dev.off()
-#' 
-#' 
-#' 
-#' ## 2021:2022----
-#' #' Now we will do the same graph but only with data from 2021 to 2022
-#' select <- landings %>%
-#'   filter(YEAR == c("2021","2022")) %>%
-#'   select(X3A_CODE, totwghtlandg) %>%
-#'   group_by(X3A_CODE) %>%
-#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-#'   arrange(desc(totwghtlandg))
-#' 
-#' # Let's take the  most important species in term of landings kg from 2021 to 2022
-#' tentaxons <- unique(head(select["X3A_CODE"], n=10))
-#' tentaxons <- unlist(tentaxons)
-#' 
-#' select2 <- landings %>%
-#'   select(FleetIAM, totwghtlandg) %>%
-#'   group_by(FleetIAM) %>%
-#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-#'   arrange(desc(totwghtlandg))
-#' 
-#' # Let's take the  most important fleet in term of landings kg from 2021 to 2022
-#' tenfleets <- unique(head(select2["FleetIAM"], n=6))
-#' tenfleets <- unlist(tenfleets)
-#' 
-#' sankey <- landings %>%
-#'   filter (COUNTRY == "FRA") %>%
-#'   filter (X3A_CODE %in% tentaxons) %>%
-#'   filter (FleetIAM %in% tenfleets) %>%
-#'   select (FleetIAM, X3A_CODE,totwghtlandg) %>%
-#'   group_by(FleetIAM, X3A_CODE) %>%
-#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
-#' 
-#' 
-#' # Graph: From Fleets to Species
-#' output_file <- "Figures/FRA/Sankey/sankey_depend2122.pdf"
-#' pdf(output_file, width = 12, height = 10)
-#' 
-#' ggplot(data = sankey,
-#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-#'   geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
-#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-#'   geom_stratum()+ # Categories blocks
-#'   geom_text(stat = "stratum",
-#'             aes(label = after_stat(stratum))) + # Categories block's names
-#'   ggtitle("Fleets dependencies to each species",
-#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2021 to 2022")+
-#'   theme_void() +
-#'   theme(
-#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-#'   )+
-#'   guides(fill=FALSE) # No Legend
-#' 
-#' dev.off()
-#' 
-#' 
-#' # Graph:From Species to Fleets
-#' output_file <- "Figures/FRA/Sankey/sankey_contrib2122.pdf"
-#' pdf(output_file, width = 12, height = 10)
-#' 
-#' ggplot(data = sankey,
-#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-#'   geom_alluvium(aes(fill = X3A_CODE),# Link goes from Species to Fleets
-#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-#'   geom_stratum()+ # Categories blocks
-#'   geom_text(stat = "stratum",
-#'             aes(label = after_stat(stratum))) + # Categories block's names
-#'   ggtitle("Contribution of each species to landings of each fleets",
-#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2021 to 2022")+
-#'   theme_void() +
-#'   theme(
-#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-#'   )+
-#'   guides(fill=FALSE) # No Legend
-#' 
-#' dev.off()
-#' 
-#' 
-#' ## 2022 only----
-#' #' Now we will do the same graph but only with data from 2022
-#' select <- landings %>%
-#'   filter(YEAR == "2022") %>%
-#'   select(X3A_CODE, totwghtlandg) %>%
-#'   group_by(X3A_CODE) %>%
-#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-#'   arrange(desc(totwghtlandg))
-#' 
-#' # Let's take the  most important species in term of landings kg from 2022
-#' tentaxons <- unique(head(select["X3A_CODE"], n=10))
-#' tentaxons <- unlist(tentaxons)
-#' 
-#' select2 <- landings %>%
-#'   select(FleetIAM, totwghtlandg) %>%
-#'   group_by(FleetIAM) %>%
-#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-#'   arrange(desc(totwghtlandg))
-#' 
-#' # Let's take the  most important fleet in term of landings kg from 2022
-#' tenfleets <- unique(head(select2["FleetIAM"], n=6))
-#' tenfleets <- unlist(tenfleets)
-#' 
-#' sankey <- landings %>%
-#'   filter (COUNTRY == "FRA") %>%
-#'   filter (X3A_CODE %in% tentaxons) %>%
-#'   filter (FleetIAM %in% tenfleets) %>%
-#'   select (FleetIAM, X3A_CODE,totwghtlandg) %>%
-#'   group_by(FleetIAM, X3A_CODE) %>%
-#'   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
-#' 
-#' 
-#' # Graph: From Fleets to Species
-#' output_file <- "Figures/FRA/Sankey/sankey_depend2022.pdf"
-#' pdf(output_file, width = 12, height = 10)
-#' 
-#' ggplot(data = sankey,
-#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-#'   geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
-#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-#'   geom_stratum()+ # Categories blocks
-#'   geom_text(stat = "stratum",
-#'             aes(label = after_stat(stratum))) + # Categories block's names
-#'   ggtitle("Fleets dependencies to each species",
-#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2022")+
-#'   theme_void() +
-#'   theme(
-#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-#'   )+
-#'   guides(fill=FALSE) # No Legend
-#' 
-#' dev.off()
-#' 
-#' 
-#' # Graph:From Species to Fleets
-#' output_file <- "Figures/FRA/Sankey/sankey_contrib2022.pdf"
-#' pdf(output_file, width = 12, height = 10)
-#' 
-#' ggplot(data = sankey,
-#'        aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
-#'   geom_alluvium(aes(fill = X3A_CODE),# Link goes from Species to Fleets
-#'                 curve_type = "cubic", alpha = 0.7) + # Colour links between categories
-#'   geom_stratum()+ # Categories blocks
-#'   geom_text(stat = "stratum",
-#'             aes(label = after_stat(stratum))) + # Categories block's names
-#'   ggtitle("Contribution of each species to landings of each fleets",
-#'           subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2022")+
-#'   theme_void() +
-#'   theme(
-#'     plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
-#'     plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
-#'   )+
-#'   guides(fill=FALSE) # No Legend
-#' 
-#' dev.off()
+# DEPENDANCE ALL----
+#' This one will plot the dependance (in term of landings in values) for 5 most 
+#' important fleets and the 10 most important species (excluding ZZZ) from 2013
+#' to 2022. You should adjust the number of fleets and species you want to display 
+#' in the values of "tentaxons" and "tenfleets", according to your data.
+select <- landings %>%
+  select(X3A_CODE, totvallandg) %>%
+  group_by(X3A_CODE) %>%
+  summarise(totvallandg = sum(totvallandg, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(totvallandg))
+
+# Let's take the  most important species in term of landings (euros) across 2013:2022
+tentaxons <- unique(head(select["X3A_CODE"], n=10))
+tentaxons <- unlist(tentaxons)
+
+select2 <- landings %>%
+  select(FleetIAM, totvallandg) %>%
+  group_by(FleetIAM) %>%
+  summarise(totvallandg = sum(totvallandg, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(totvallandg))
+
+# Let's take the  most important fleet in term of landings (euros) across 2013:2022
+tenfleets <- unique(head(select2["FleetIAM"], n=5))
+tenfleets <- unlist(tenfleets)
+
+sankey <- landings %>%
+  filter (COUNTRY == "FRA") %>%
+  filter (X3A_CODE != "ZZZ") %>% # Let's get rid of ZZZ species
+  filter (X3A_CODE %in% tentaxons) %>%
+  filter (FleetIAM %in% tenfleets) %>%
+  select (FleetIAM, X3A_CODE,totvallandg) %>%
+  group_by(FleetIAM, X3A_CODE) %>%
+  summarise(totvallandg = sum(totvallandg, na.rm = TRUE), .groups = "drop")
+
+
+# Graph: From Fleets to Species
+output_file <- "Figures/FRA/Sankey/sankey_dependALL.pdf"
+pdf(output_file, width = 12, height = 10)
+
+ggplot(data = sankey,
+       aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totvallandg)) +
+  geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
+                curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+  geom_stratum()+ # Categories blocks
+  geom_text(stat = "stratum",
+            aes(label = after_stat(stratum))) + # Categories block's names
+  ggtitle("Fleets dependencies to each species",
+          subtitle = "6 most important fleets and 10 most important species, both in term of landings (euros), from 2013 to 2022")+
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+    plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+  )+
+  guides(fill=FALSE) # No Legend
+
+dev.off()
+
+
+
+
+
+# DEPENDANCE 2021:2022----
+#' Same idea as previously but only for the last 2 years (2021-2022)
+select <- landings %>%
+  filter(YEAR == c("2021","2022")) %>%
+  select(X3A_CODE, totvallandg) %>%
+  group_by(X3A_CODE) %>%
+  summarise(totvallandg = sum(totvallandg, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(totvallandg))
+
+# Let's take the  most important species in term of landings (euros) across 2013:2022
+tentaxons <- unique(head(select["X3A_CODE"], n=10))
+tentaxons <- unlist(tentaxons)
+
+select2 <- landings %>%
+  select(FleetIAM, totvallandg) %>%
+  group_by(FleetIAM) %>%
+  summarise(totvallandg = sum(totvallandg, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(totvallandg))
+
+# Let's take the  most important fleet in term of landings (euros) across 2013:2022
+tenfleets <- unique(head(select2["FleetIAM"], n=5))
+tenfleets <- unlist(tenfleets)
+
+sankey <- landings %>%
+  filter (COUNTRY == "FRA") %>%
+  filter (X3A_CODE != "ZZZ") %>%
+  filter (X3A_CODE %in% tentaxons) %>%
+  filter (FleetIAM %in% tenfleets) %>%
+  select (FleetIAM, X3A_CODE,totvallandg) %>%
+  group_by(FleetIAM, X3A_CODE) %>%
+  summarise(totvallandg = sum(totvallandg, na.rm = TRUE), .groups = "drop")
+
+
+# Graph: From Fleets to Species
+output_file <- "Figures/FRA/Sankey/sankey_depend2122.pdf"
+pdf(output_file, width = 12, height = 10)
+
+ggplot(data = sankey,
+       aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totvallandg)) +
+  geom_alluvium(aes(fill = FleetIAM),# Link goes from Fleets to Species
+                curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+  geom_stratum()+ # Categories blocks
+  geom_text(stat = "stratum",
+            aes(label = after_stat(stratum))) + # Categories block's names
+  ggtitle("Fleets dependencies to each species",
+          subtitle = "6 most important fleets and 10 most important species, both in term of landings (euros), from 2013 to 2022")+
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 15, face = "bold"), # Centered & bold title
+    plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+  )+
+  guides(fill=FALSE) # No Legend
+
+dev.off()
+
+
+
+
+# CONTRIB ALL----
+#' Same idea as previously but this time it's the contribution so it's in landings
+#' in KG and not in values (euros). This plot is for the 2013-2022 time period.
+select <- landings %>%
+  select(X3A_CODE, totwghtlandg) %>%
+  group_by(X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(totwghtlandg))
+
+# Let's take the  most important species in term of landings kg across 2013:2022
+tentaxons <- unique(head(select["X3A_CODE"], n=10))
+tentaxons <- unlist(tentaxons)
+
+select2 <- landings %>%
+  select(FleetIAM, totwghtlandg) %>%
+  group_by(FleetIAM) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(totwghtlandg))
+
+# Let's take the  most important fleet in term of landings kg across 2013:2022
+tenfleets <- unique(head(select2["FleetIAM"], n=6))
+tenfleets <- unlist(tenfleets)
+
+sankey <- landings %>%
+  filter (COUNTRY == "FRA") %>%
+  filter (X3A_CODE != "ZZZ") %>% # Let's get rid of ZZZ species
+  filter (X3A_CODE %in% tentaxons) %>%
+  filter (FleetIAM %in% tenfleets) %>%
+  select (FleetIAM, X3A_CODE,totwghtlandg) %>%
+  group_by(FleetIAM, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+output_file <- "Figures/FRA/Sankey/sankey_contribALL.pdf"
+pdf(output_file, width = 12, height = 10)
+
+ggplot(data = sankey, aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+  geom_alluvium(aes(fill = X3A_CODE), # Link goes from Species to Fleets
+                curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+  geom_stratum() + # Categories blocks
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) + # Categories block's names
+  ggtitle("Contribution of each species to landings of each fleets",
+          subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2013 to 2022") +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 15, face = "bold"),
+    # Centered & bold title
+    plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+  ) +
+  guides(fill = FALSE) # No Legend
+
+dev.off()
+
+
+
+
+# CONTRIB 2021-2022----
+#' Same idea as previously but only for the last 2 years (2021-2022)
+select <- landings %>%
+  filter(YEAR == c("2021","2022")) %>%
+  select(X3A_CODE, totwghtlandg) %>%
+  group_by(X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(totwghtlandg))
+
+# Let's take the  most important species in term of landings kg across 2021:2022
+tentaxons <- unique(head(select["X3A_CODE"], n=10))
+tentaxons <- unlist(tentaxons)
+
+select2 <- landings %>%
+  select(FleetIAM, totwghtlandg) %>%
+  group_by(FleetIAM) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(totwghtlandg))
+
+# Let's take the  most important fleet in term of landings kg across 2021:2022
+tenfleets <- unique(head(select2["FleetIAM"], n=6))
+tenfleets <- unlist(tenfleets)
+
+sankey <- landings %>%
+  filter (COUNTRY == "FRA") %>%
+  filter (X3A_CODE != "ZZZ") %>% # Let's get rid of ZZZ species
+  filter (X3A_CODE %in% tentaxons) %>%
+  filter (FleetIAM %in% tenfleets) %>%
+  select (FleetIAM, X3A_CODE,totwghtlandg) %>%
+  group_by(FleetIAM, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+output_file <- "Figures/FRA/Sankey/sankey_contrib2122.pdf"
+pdf(output_file, width = 12, height = 10)
+
+ggplot(data = sankey, aes(axis1 = FleetIAM, axis2 = X3A_CODE, y = totwghtlandg)) +
+  geom_alluvium(aes(fill = X3A_CODE), # Link goes from Species to Fleets
+                curve_type = "cubic", alpha = 0.7) + # Colour links between categories
+  geom_stratum() + # Categories blocks
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) + # Categories block's names
+  ggtitle("Contribution of each species to landings of each fleets",
+          subtitle = "6 most important fleets and 10 most important species, both in term of landings (kg), from 2021 to 2022") +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 15, face = "bold"),
+    # Centered & bold title
+    plot.subtitle = element_text(hjust = 0.5, size = 13, face = "italic") # Centered & italic SUBtitle
+  ) +
+  guides(fill = FALSE) # No Legend
+
+dev.off()
 
 
 
@@ -2189,4 +2182,933 @@ mean(waff_df2$totwghtlandg)
 #   )
 # 
 # dev.off()
+
+
+
+# Histograms for Sophie's presentation----
+#' The idea is to represent the 5 dynamic species (HKE, MUT, NEP, ARA, DPS) on 
+#' a histogram for different periods, and show the difference in term of landings
+#' between the French and the Spanish.
+#' 
+#' Because we previously filtered our data to get only French data, we have to 
+#' import and clean the data again.
+
+FDI_J <- read.csv("Data/Data_EWG2311/tableJ_EWG2311.csv")
+
+FDI_J <- subset(FDI_J,
+                fishing_tech != "INACTIVE" &
+                  country_code != "ITA" &
+                  supra_region == "MBS" & 
+                  principal_sub_region %in% c("GSA1", "GSA2", "GSA5", "GSA6", "GSA7"))
+
+FDI_J <- FDI_J %>%
+  rename(
+    COUNTRY = country_code,
+    YEAR = year,
+    SUPRA_REGION = supra_region,
+    FISHING_TECH = fishing_tech,
+    VESSEL_LENGTH = vessel_length,
+    GEO_INDICATOR = geo_indicator) 
+
+FDI_J <- FDI_J %>%
+  mutate(FleetIAM = case_when(
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL0612") ~ "ESP_DTS_<12m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1218") ~ "ESP_DTS_12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1824") ~ "ESP_DTS_18-24m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL2440") ~ "ESP_DTS_>=24m",
+    COUNTRY == "ESP" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0612") ~ "ESP_DFN_06-12m",
+    COUNTRY == "ESP" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL1218") ~ "ESP_DFN_12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0612") ~ "ESP_HOK_06-12m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1218") ~ "ESP_HOK_12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1824") ~ "ESP_HOK_18-24m",
+    COUNTRY == "ESP" & VESSEL_LENGTH %in% c("VL0006", "VL0612") ~ "Other_<=12m",
+    COUNTRY == "ESP" & VESSEL_LENGTH %in% c("VL1218", "VL1824","VL2440","VL40XX") ~ "Other_>=12m",
+    COUNTRY == "ESP" ~ "Other",
+    COUNTRY == "FRA" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1824") ~ "FRA_DTS_18-24m",
+    COUNTRY == "FRA" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL2440") ~ "FRA_DTS_>24m",
+    COUNTRY == "FRA" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0006") ~ "FRA_DFN_00-06m",
+    COUNTRY == "FRA" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0612") ~ "FRA_DFN_06-12m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0006") ~ "FRA_HOK_00-06m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0612") ~ "FRA_HOK_06-12m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1218") ~ "FRA_HOK_12-18m",
+    COUNTRY == "FRA" & VESSEL_LENGTH %in% c("VL0006", "VL0612") ~ "Other_<=12m",
+    COUNTRY == "FRA" & VESSEL_LENGTH %in% c("VL1218", "VL1824","VL2440","VL40XX") ~ "Other_>=12m",
+    COUNTRY == "FRA" ~ "Other",
+    TRUE ~ NA_character_))
+
+FDI_J <- FDI_J %>%
+  mutate(Segment = case_when(
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL0612") ~ "Spanish trawlers < 12m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1218") ~ "Spanish trawlers 12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1824") ~ "Spanish trawlers 18-24m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL2440") ~ "Spanish trawlers >=24m",
+    COUNTRY == "ESP" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0612") ~ "Spanish netters 06-12m",
+    COUNTRY == "ESP" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL1218") ~ "Spanish netters 12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0612") ~ "Spanish vessels using hooks 06-12m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1218") ~ "Spanish vessels using hooks 12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1824") ~ "Spanish vessels using hooks 18-24m",
+    COUNTRY == "ESP" & VESSEL_LENGTH %in% c("VL0006", "VL0612") ~ "Other inf 12m",
+    COUNTRY == "ESP" & VESSEL_LENGTH %in% c("VL1218", "VL1824","VL2440","VL40XX") ~ "Other sup 12m",
+    COUNTRY == "ESP" ~ "Other",
+    COUNTRY == "FRA" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1824") ~ "French demersal trawlers 18-24m",
+    COUNTRY == "FRA" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL2440") ~ "French demersal trawlers 24-40m",
+    COUNTRY == "FRA" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0006") ~ "French netters < 6m",
+    COUNTRY == "FRA" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0612") ~ "French netters 06-12m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0006") ~ "Hook < 6m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0612") ~ "Hook 06-12m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1218") ~ "Hook 12-18m",
+    COUNTRY == "FRA" & VESSEL_LENGTH %in% c("VL0006", "VL0612") ~ "Other inf 12m",
+    COUNTRY == "FRA" & VESSEL_LENGTH %in% c("VL1218", "VL1824","VL2440","VL40XX") ~ "Other sup 12m",
+    COUNTRY == "FRA" ~ "Other",
+    TRUE ~ NA_character_))
+
+
+FDI_G <- read.csv("Data/Data_EWG2311/tableG_EWG2311.csv")
+
+FDI_G <- data.frame(FDI_G) 
+dim(FDI_G)
+
+
+FDI_G <- FDI_G %>%
+  rename(
+    COUNTRY = country_code,
+    YEAR = year,
+    SUPRA_REGION = supra_region,
+    FISHING_TECH = fishing_tech,
+    VESSEL_LENGTH = vessel_length,
+    GEO_INDICATOR = geo_indicator)
+
+
+effort <-  merge(FDI_G, unique(FDI_J[,c("COUNTRY","YEAR","VESSEL_LENGTH","FISHING_TECH","SUPRA_REGION"
+                                        ,"Segment","FleetIAM")]))
+
+
+taxons_select <- read_excel("Perso/Species_Focus_CodeDescription_NOA.xlsx")
+FDI_A <- read.csv("Data/Data_EWG2311/tableA_EWG2311.csv")
+
+FDI_A <- subset(FDI_A,
+                fishing_tech != "INACTIVE" &
+                  country_code != "ITA" &
+                  supra_region == "MBS" & 
+                  sub_region %in% c("GSA1", "GSA2", "GSA5", "GSA6", "GSA7") &
+                  !(species %in% c("BFT"))) ### excluding Red Tunas
+
+FDI_A <- FDI_A %>%
+  rename(
+    COUNTRY = country_code,
+    YEAR = year,
+    SUPRA_REGION = supra_region,
+    FISHING_TECH = fishing_tech,
+    VESSEL_LENGTH = vessel_length,
+    GEO_INDICATOR = geo_indicator,
+    SPECIES = species,
+    SUB_REGION = sub_region)
+
+
+
+
+
+#### Merging gregoire's taxons selection and table A
+# Convert dataframes in data.table format
+FDI_A <- as.data.table(FDI_A)
+taxons_select <- as.data.table(taxons_select)
+
+
+# Create a "key" to speed up the research
+setkey(taxons_select, `Other taxonomic code included`)
+
+# Initialize the new column
+FDI_A[, New_Code := NA_character_]
+
+# Divide FDI_A in multiple chunks 
+split_size <- 100000 # Adjust this value according to the memory available
+splits <- split(FDI_A, ceiling(seq_len(FDI_A[, .N]) / split_size))
+
+# Joint by chunks 
+for (chunk in splits) {
+  for (code in unique(taxons_select$`Other taxonomic code included`)) {
+    codes <- unlist(strsplit(code, ", "))
+    chunk[SPECIES %in% codes, New_Code := taxons_select[code, x.X3A_CODE]]}}
+
+# Gather chunks 
+FDI_A <- rbindlist(splits)
+
+length(unique(FDI_A$New_Code)) # 37 taxons "non vides", 46 au total
+
+# Put "NA" in "ZZZ"
+FDI_A <- FDI_A %>%
+  rename(X3A_CODE = New_Code) %>%
+  mutate(X3A_CODE = ifelse(is.na(X3A_CODE), "ZZZ", X3A_CODE))
+
+
+landings <- FDI_A
+
+length(unique(landings$X3A_CODE)) # 46 taxons
+length(unique(taxons_select$X3A_CODE)) # for a total of 50
+setdiff(unique(taxons_select$X3A_CODE), unique(landings$X3A_CODE)) 
+# Species not present : ARI_bis, KTT, PHA and XOX
+
+#### Creating the IAM fleets typo in table "landings"
+landings <- landings %>%
+  mutate(FleetIAM = case_when(
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL0612") ~ "ESP_DTS_<12m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1218") ~ "ESP_DTS_12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1824") ~ "ESP_DTS_18-24m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL2440") ~ "ESP_DTS_>=24m",
+    COUNTRY == "ESP" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0612") ~ "ESP_DFN_06-12m",
+    COUNTRY == "ESP" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL1218") ~ "ESP_DFN_12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0612") ~ "ESP_HOK_06-12m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1218") ~ "ESP_HOK_12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1824") ~ "ESP_HOK_18-24m",
+    COUNTRY == "ESP" & VESSEL_LENGTH %in% c("VL0006", "VL0612") ~ "Other_<=12m",
+    COUNTRY == "ESP" & VESSEL_LENGTH %in% c("VL1218", "VL1824","VL2440","VL40XX") ~ "Other_>=12m",
+    COUNTRY == "ESP" ~ "Other",
+    COUNTRY == "FRA" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1824") ~ "FRA_DTS_18-24m",
+    COUNTRY == "FRA" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL2440") ~ "FRA_DTS_>24m",
+    COUNTRY == "FRA" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0006") ~ "FRA_DFN_00-06m",
+    COUNTRY == "FRA" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0612") ~ "FRA_DFN_06-12m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0006") ~ "FRA_HOK_00-06m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0612") ~ "FRA_HOK_06-12m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1218") ~ "FRA_HOK_12-18m",
+    COUNTRY == "FRA" & VESSEL_LENGTH %in% c("VL0006", "VL0612") ~ "Other_<=12m",
+    COUNTRY == "FRA" & VESSEL_LENGTH %in% c("VL1218", "VL1824","VL2440","VL40XX") ~ "Other_>=12m",
+    COUNTRY == "FRA" ~ "Other",
+    TRUE ~ NA_character_))
+
+
+#### Creating a segment column
+landings <- landings %>%
+  mutate(Segment = case_when(
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL0612") ~ "Spanish trawlers < 12m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1218") ~ "Spanish trawlers 12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1824") ~ "Spanish trawlers 18-24m",
+    COUNTRY == "ESP" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL2440") ~ "Spanish trawlers >=24m",
+    COUNTRY == "ESP" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0612") ~ "Spanish netters 06-12m",
+    COUNTRY == "ESP" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL1218") ~ "Spanish netters 12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0612") ~ "Spanish vessels using hooks 06-12m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1218") ~ "Spanish vessels using hooks 12-18m",
+    COUNTRY == "ESP" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1824") ~ "Spanish vessels using hooks 18-24m",
+    COUNTRY == "ESP" & VESSEL_LENGTH %in% c("VL0006", "VL0612") ~ "Other inf 12m",
+    COUNTRY == "ESP" & VESSEL_LENGTH %in% c("VL1218", "VL1824","VL2440","VL40XX") ~ "Other sup 12m",
+    COUNTRY == "ESP" ~ "Other",
+    COUNTRY == "FRA" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL1824") ~ "French demersal trawlers 18-24m",
+    COUNTRY == "FRA" & FISHING_TECH == "DTS" & VESSEL_LENGTH %in% c("VL2440") ~ "French demersal trawlers 24-40m",
+    COUNTRY == "FRA" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0006") ~ "French netters < 6m",
+    COUNTRY == "FRA" & FISHING_TECH == "DFN" & VESSEL_LENGTH %in% c("VL0612") ~ "French netters 06-12m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0006") ~ "Hook < 6m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL0612") ~ "Hook 06-12m",
+    COUNTRY == "FRA" & FISHING_TECH == "HOK" & VESSEL_LENGTH %in% c("VL1218") ~ "Hook 12-18m",
+    COUNTRY == "FRA" & VESSEL_LENGTH %in% c("VL0006", "VL0612") ~ "Other inf 12m",
+    COUNTRY == "FRA" & VESSEL_LENGTH %in% c("VL1218", "VL1824","VL2440","VL40XX") ~ "Other sup 12m",
+    COUNTRY == "FRA" ~ "Other",
+    TRUE ~ NA_character_))
+
+
+## ALL PERIOD----
+## Plot the histogram for ALL fleets ALL period----
+thefive <- landings %>%
+  filter (X3A_CODE %in% c("HKE","MUT","NEP","ARA","DPS")) %>%
+  filter (COUNTRY %in% c("FRA","ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+
+ALL_2013_2022 <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: toutes flottilles confondues",
+    subtitle = "Données FDI sur la période 2013-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+
+## Plot the histogram for ALL fleets ALL period WITH ZZZ----
+thefive <- landings %>%
+  mutate(X3A_CODE = fct_other(
+    X3A_CODE,
+    keep = c("HKE", "MUT", "NEP", "ARA", "DPS"),
+    other_level = "ZZZ"
+  )) %>%
+  filter (COUNTRY %in% c("FRA", "ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),
+            .groups = "drop")
+
+
+
+ALL_2013_2022_ZZZ <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: toutes flottilles confondues",
+    subtitle = "Données FDI sur la période 2013-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+
+## Plot the histogram for DTS fleets ALL period----
+thefive <- landings %>%
+  filter (X3A_CODE %in% c("HKE","MUT","NEP","ARA","DPS")) %>%
+  filter (FISHING_TECH %in% c("DTS")) %>%
+  filter (COUNTRY %in% c("FRA","ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+
+DTS_2013_2022 <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: Chalutiers (DTS)",
+    subtitle = "Données FDI sur la période 2013-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+## Plot the histogram for DTS fleets ALL period with ZZZ----
+thefive <- landings %>%
+  mutate(X3A_CODE = fct_other(
+    X3A_CODE,
+    keep = c("HKE", "MUT", "NEP", "ARA", "DPS"),
+    other_level = "ZZZ"
+  )) %>%
+  filter (FISHING_TECH %in% c("DTS")) %>%
+  filter (COUNTRY %in% c("FRA", "ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),
+            .groups = "drop")
+
+
+
+DTS_2013_2022_ZZZ <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: Chalutiers (DTS)",
+    subtitle = "Données FDI sur la période 2013-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+## Plot the histogram for DFN fleets ALL period----
+thefive <- landings %>%
+  filter (X3A_CODE %in% c("HKE","MUT","NEP","ARA","DPS")) %>%
+  filter (FISHING_TECH %in% c("DFN")) %>%
+  filter (COUNTRY %in% c("FRA","ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+
+DFN_2013_2022 <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: Fileyeurs (DFN)",
+    subtitle = "Données FDI sur la période 2013-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+
+## Plot the histogram for DFN fleets ALL period with ZZZ----
+thefive <- landings %>%
+  mutate(X3A_CODE = fct_other(
+    X3A_CODE,
+    keep = c("HKE", "MUT", "NEP", "ARA", "DPS"),
+    other_level = "ZZZ"
+  )) %>%
+  filter (FISHING_TECH %in% c("DFN")) %>%
+  filter (COUNTRY %in% c("FRA", "ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),
+            .groups = "drop")
+
+
+
+DFN_2013_2022_ZZZ <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: Fileyeurs (DFN)",
+    subtitle = "Données FDI sur la période 2013-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+## Plot the histogram for HOK fleets ALL period----
+thefive <- landings %>%
+  filter (X3A_CODE %in% c("HKE","MUT","NEP","ARA","DPS")) %>%
+  filter (FISHING_TECH %in% c("HOK")) %>%
+  filter (COUNTRY %in% c("FRA","ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+
+HOK_2013_2022 <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: ligneurs (HOK)",
+    subtitle = "Données FDI sur la période 2013-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+## Plot the histogram for HOK fleets ALL period----
+thefive <- landings %>%
+  mutate(X3A_CODE = fct_other(
+    X3A_CODE,
+    keep = c("HKE", "MUT", "NEP", "ARA", "DPS"),
+    other_level = "ZZZ"
+  )) %>%
+  filter (FISHING_TECH %in% c("HOK")) %>%
+  filter (COUNTRY %in% c("FRA", "ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),
+            .groups = "drop")
+
+
+
+HOK_2013_2022_ZZZ <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: ligneurs (HOK)",
+    subtitle = "Données FDI sur la période 2013-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+
+
+
+
+
+## 2021-2022 PERIOD----
+## Plot the histogram for ALL fleets ALL period----
+thefive <- landings %>%
+  filter (X3A_CODE %in% c("HKE","MUT","NEP","ARA","DPS")) %>%
+  filter (YEAR %in% c(2021,2022)) %>%
+  filter (COUNTRY %in% c("FRA","ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+
+ALL_2021_2022 <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: toutes flottilles confondues",
+    subtitle = "Données FDI sur la période 2021-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+
+## Plot the histogram for ALL fleets 2021-2022 period WITH ZZZ----
+thefive <- landings %>%
+  mutate(X3A_CODE = fct_other(
+    X3A_CODE,
+    keep = c("HKE", "MUT", "NEP", "ARA", "DPS"),
+    other_level = "ZZZ"
+  )) %>%
+  filter (COUNTRY %in% c("FRA", "ESP")) %>%
+  filter (YEAR %in% c(2021,2022)) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),
+            .groups = "drop")
+
+
+
+ALL_2021_2022_ZZZ <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: toutes flottilles confondues",
+    subtitle = "Données FDI sur la période 2021-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+
+## Plot the histogram for DTS fleets 2021-2022 period----
+thefive <- landings %>%
+  filter (X3A_CODE %in% c("HKE","MUT","NEP","ARA","DPS")) %>%
+  filter (FISHING_TECH %in% c("DTS")) %>%
+  filter (COUNTRY %in% c("FRA","ESP")) %>%
+  filter (YEAR %in% c(2021,2022)) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+
+DTS_2021_2022 <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: Chalutiers (DTS)",
+    subtitle = "Données FDI sur la période 2021-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+## Plot the histogram for DTS fleets 2021-2022 period with ZZZ----
+thefive <- landings %>%
+  mutate(X3A_CODE = fct_other(
+    X3A_CODE,
+    keep = c("HKE", "MUT", "NEP", "ARA", "DPS"),
+    other_level = "ZZZ"
+  )) %>%
+  filter (FISHING_TECH %in% c("DTS")) %>%
+  filter (COUNTRY %in% c("FRA", "ESP")) %>%
+  filter (YEAR %in% c(2021,2022)) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),
+            .groups = "drop")
+
+
+
+DTS_2021_2022_ZZZ <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: Chalutiers (DTS)",
+    subtitle = "Données FDI sur la période 2021-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+## Plot the histogram for DFN fleets 2021-2022 period----
+thefive <- landings %>%
+  filter (X3A_CODE %in% c("HKE","MUT","NEP","ARA","DPS")) %>%
+  filter (FISHING_TECH %in% c("DFN")) %>%
+  filter (COUNTRY %in% c("FRA","ESP")) %>%
+  filter (YEAR %in% c(2021,2022)) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+
+DFN_2021_2022 <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: Fileyeurs (DFN)",
+    subtitle = "Données FDI sur la période 2021-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+
+## Plot the histogram for DFN fleets ALL period with ZZZ----
+thefive <- landings %>%
+  mutate(X3A_CODE = fct_other(
+    X3A_CODE,
+    keep = c("HKE", "MUT", "NEP", "ARA", "DPS"),
+    other_level = "ZZZ"
+  )) %>%
+  filter (FISHING_TECH %in% c("DFN")) %>%
+  filter (COUNTRY %in% c("FRA", "ESP")) %>%
+  filter (YEAR %in% c(2021,2022)) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),
+            .groups = "drop")
+
+
+
+DFN_2021_2022_ZZZ <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: Fileyeurs (DFN)",
+    subtitle = "Données FDI sur la période 2021-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+## Plot the histogram for HOK fleets 2021-2022 period----
+thefive <- landings %>%
+  filter (X3A_CODE %in% c("HKE","MUT","NEP","ARA","DPS")) %>%
+  filter (FISHING_TECH %in% c("HOK")) %>%
+  filter (COUNTRY %in% c("FRA","ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop")
+
+
+
+HOK_2021_2022 <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: ligneurs (HOK)",
+    subtitle = "Données FDI sur la période 2021-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+## Plot the histogram for HOK fleets 2021-2022 period----
+thefive <- landings %>%
+  mutate(X3A_CODE = fct_other(
+    X3A_CODE,
+    keep = c("HKE", "MUT", "NEP", "ARA", "DPS"),
+    other_level = "ZZZ"
+  )) %>%
+  filter (FISHING_TECH %in% c("HOK")) %>%
+  filter (COUNTRY %in% c("FRA", "ESP")) %>%
+  select (COUNTRY, X3A_CODE, totwghtlandg) %>%
+  group_by(COUNTRY, X3A_CODE) %>%
+  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),
+            .groups = "drop")
+
+
+
+HOK_2021_2022_ZZZ <- ggplot(thefive, aes(x = X3A_CODE, y = totwghtlandg, fill = COUNTRY)) +
+  geom_bar(stat = "identity",
+           position = "stack",
+           orientation = "horizontal") +
+  coord_flip() +
+  scale_fill_manual(values = c("ESP" = "red", "FRA" = "blue"),
+                    name = "Pays") +
+  labs(
+    x = "Espèce",
+    y = "Débarquements en tonnes",
+    title = "Débarquements cumulés par espèce et par pays: ligneurs (HOK)",
+    subtitle = "Données FDI sur la période 2021-2022"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold", margin = margin(r = 20))
+  )
+
+
+## Save the plots----
+ggsave("Figures/BOTH/Hist_5_Species/ALL_2013_2022.png", plot = ALL_2013_2022, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/ALL_2013_2022_ZZZ.png", plot = ALL_2013_2022_ZZZ, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/DTS_2013_2022.png", plot = DTS_2013_2022, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/DTS_2013_2022_ZZZ.png", plot = DTS_2013_2022_ZZZ, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/DFN_2013_2022.png", plot = DFN_2013_2022, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/DFN_2013_2022_ZZZ.png", plot = DFN_2013_2022_ZZZ, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/HOK_2013_2022.png", plot = HOK_2013_2022, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/HOK_2013_2022_ZZZ.png", plot = HOK_2013_2022_ZZZ, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/ALL_2021_2022.png", plot = ALL_2021_2022, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/ALL_2021_2022_ZZZ.png", plot = ALL_2021_2022_ZZZ, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/DTS_2021_2022.png", plot = DTS_2021_2022, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/DTS_2021_2022_ZZZ.png", plot = DTS_2021_2022_ZZZ, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/DFN_2021_2022.png", plot = DFN_2021_2022, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/DFN_2021_2022_ZZZ.png", plot = DFN_2021_2022_ZZZ, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/HOK_2021_2022.png", plot = HOK_2021_2022, width = 3000, height = 2000, units = "px")
+ggsave("Figures/BOTH/Hist_5_Species/HOK_2021_2022_ZZZ.png", plot = HOK_2021_2022_ZZZ, width = 3000, height = 2000, units = "px")
+
+
+
+
+
+
+# SANKEY DYNAMIC----
+library(plotly)
+library(dplyr)
+library(RColorBrewer)
+
+# Préparation des données
+sankey <- landings %>%
+  filter(COUNTRY == "FRA", X3A_CODE != "ZZZ", X3A_CODE %in% tentaxons, FleetIAM %in% tenfleets) %>%
+  group_by(FleetIAM, X3A_CODE) %>%
+  summarise(totvallandg = sum(totvallandg, na.rm = TRUE), .groups = "drop")
+
+# Création des labels uniques pour les nœuds
+all_nodes <- unique(c(sankey$FleetIAM, sankey$X3A_CODE))
+node_labels <- all_nodes
+
+# Création des indices pour source et target
+sankey <- sankey %>%
+  mutate(
+    source = match(FleetIAM, all_nodes) - 1,
+    target = match(X3A_CODE, all_nodes) - 1
+  )
+
+# Création d'une palette de couleurs pour les flottilles
+n_fleets <- length(unique(sankey$FleetIAM))
+fleet_colors <- colorRampPalette(brewer.pal(8, "Set1"))(n_fleets)
+names(fleet_colors) <- unique(sankey$FleetIAM)
+
+# Attribution des couleurs aux liens en fonction de la flottille source
+link_colors <- fleet_colors[sankey$FleetIAM]
+
+# Normalisation des valeurs totvallandg pour ajuster l'opacité
+min_val <- min(sankey$totvallandg)
+max_val <- max(sankey$totvallandg)
+norm_values <- (sankey$totvallandg - min_val) / (max_val - min_val)
+
+# Fonction pour créer le diagramme Sankey
+create_sankey <- function(highlight_fleet = NULL) {
+  # Ajustement des couleurs et de l'opacité en fonction de la taille du lien
+  link_colors_adjusted <- sapply(1:length(link_colors), function(i) {
+    adjustcolor(link_colors[i], alpha.f = 0.4 + 1 * norm_values[i]) # Opacité variant entre 0.3 et 1
+  })
+  
+  link_order <- rep(0, length(sankey$FleetIAM))
+  
+  if (!is.null(highlight_fleet)) {
+    highlight_indices <- which(sankey$FleetIAM == highlight_fleet)
+    link_colors_adjusted[highlight_indices] <- link_colors[highlight_indices]
+    link_order[highlight_indices] <- 1
+  }
+  
+  fig <- plot_ly(
+    type = "sankey",
+    orientation = "h",
+    node = list(
+      label = node_labels,
+      color = c(fleet_colors, rep("#CCCCCC", length(unique(sankey$X3A_CODE)))),
+      pad = 15,
+      thickness = 20,
+      line = list(color = "black", width = 0.5)
+    ),
+    link = list(
+      source = sankey$source,
+      target = sankey$target,
+      value = sankey$totvallandg,
+      color = link_colors_adjusted,
+      label = paste(sankey$FleetIAM, "->", sankey$X3A_CODE),
+      customdata = sankey$FleetIAM,
+      ordering = link_order
+    )
+  )
+  
+  fig <- fig %>% layout(
+    title = "Dépendances des flottes aux espèces",
+    font = list(size = 10),
+    xaxis = list(showgrid = FALSE, zeroline = FALSE),
+    yaxis = list(showgrid = FALSE, zeroline = FALSE)
+  )
+  
+  return(fig)
+}
+
+# Création du graphique initial
+fig <- create_sankey()
+fig
 
