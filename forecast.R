@@ -14,16 +14,12 @@ library(dplyr)
 library(tidyr)
 library(crayon)
 library(tseries)
+library(leaps)
 
-df <- read.csv("Perso/landingsV2.csv")
-land_w <- df %>%
-  select(YEAR, quarter, X3A_CODE, totwghtlandg)%>%
-  group_by(YEAR, quarter, X3A_CODE) %>%
-  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-  pivot_wider(names_from = X3A_CODE, values_from = totwghtlandg) %>%
-  mutate(across(everything(), ~replace_na(., 0)))%>%
-  select(-c(YEAR,quarter))
-
+df <- read.csv2("/Users/noa/Documents/Administratif/M1/MEMOIRE/DATA/BDD_1999_V6.csv")
+df <- df[,2:ncol(df)]
+df <- df %>%
+  select(-c("Food_lag"))
 
 # TS TRANSFORMATION----
 ts_transfo <- function(DATAFRAME, YEAR, MONTH, FREQUENCY) {
@@ -43,7 +39,7 @@ ts_transfo <- function(DATAFRAME, YEAR, MONTH, FREQUENCY) {
   assign("ts_list", ts_list, envir = .GlobalEnv)
   return(ts_list)
 }
-ts_transfo(land_w, 2013, 01, 4)
+ts_transfo(df, 1999, 01, 12)
 
 
 
@@ -90,7 +86,6 @@ atypical_tso <- function(){
   # Assign ts_list_adj to the global environment
   assign("ts_list_adj", ts_list_adj, envir = .GlobalEnv)
 }
-
 atypical_tso()
 
 
@@ -169,7 +164,7 @@ seaso_correct <- function(){
   
   for (ts_name in both_tests) {
     ts_data <- get(ts_name)  # Retrieve time series data
-    decomp <- stl(ts_data[,1], s.window = "periodic")  # STL decomposition
+    decomp <- stl(ts_data, s.window = "periodic")  # STL decomposition
     seasonal <- decomp$time.series[, "seasonal"]  # Get the seasonal component
     ts_data_adjusted <- ts_data - seasonal  # Correcting the seasonal component
     assign(ts_name, ts_data_adjusted, envir = .GlobalEnv)  # Update the adjusted time series
@@ -302,7 +297,7 @@ allign_ts <- function() {
 allign_ts()
 
 # CREATE DATAFRAME OF TS----
-create_df <- function() {
+create_df <- function(first_column = NULL) {
   ts_to_df <- function(ts_obj, series_name) {
     if (is.null(ts_obj$y)) {
       df <- as.data.frame(ts_obj)
@@ -343,10 +338,89 @@ create_df <- function() {
   
   result_df <- result_df[order(result_df$Year, result_df$Quarter), ]
   
-  result_df <- result_df[, c(series_list)]
+  # Réorganiser les colonnes si first_column est spécifié
+  if (!is.null(first_column) && first_column %in% names(result_df)) {
+    col_order <- c("Year", "Quarter", first_column)
+    remaining_cols <- setdiff(names(result_df), col_order)
+    result_df <- result_df[, c(col_order, remaining_cols)]
+  } else {
+    result_df <- result_df[, c("Year", "Quarter", series_list)]
+  }
+  
+  result_df <- result_df[, !names(result_df) %in% "Year"]
+  result_df <- result_df[, !names(result_df) %in% "Quarter"]
+  new_names <- names(result_df)
+  new_names <- gsub("^ts_", "", new_names)  
+  new_names <- gsub("_adj$", "", new_names) 
+  names(result_df) <- new_names
+  assign("result_df", result_df, envir = .GlobalEnv)
+  View(result_df)
+}
+create_df("ts_Food_adj")
+
+# VARIABLES SELECTION----
+vselec <- function(Y_VARIABLE) {
+  ## BestSubSet Method----
+  train_size <- floor(0.8 * nrow(result_df))
+  train <- result_df[1:train_size, ]
+  
+  formula <- as.formula(paste(Y_VARIABLE, "~ ."))
+  
+  leaps <- regsubsets(
+    formula,
+    data = train,
+    nbest = 1,
+    method = c("exhaustive")
+  )
+  
+  res.sum <- summary(leaps)
+  
+  results <- data.frame(
+    Adj.R2 = which.max(res.sum$adjr2),
+    CP = which.min(res.sum$cp),
+    BIC = which.min(res.sum$bic)
+  )
+  
+  print(results)
+  
+  plot(leaps, scale = "adjr2", main = "Adjusted R2")
+  plot(leaps, scale = "bic", main = "BIC")
+  
+  print(leaps)
+  
+  
+  # GETS Method----
+  train_size <- floor(0.8 * nrow(result_df))
+  train <- result_df[1:train_size, ]
+  mX <- data.matrix(train)
+  modele_arx <- arx(train[[Y_VARIABLE]], mc = TRUE, ar = 1, mxreg = mX, vcov.type = "ordinary")
+  modele_arx
+  seuil_p_value <- 0.05
+  variables <- colnames(train[, 2:13])
+  VRAI <- TRUE
+  while (VRAI) {
+    mX <- data.matrix(train[, variables])
+    modele_arx <- arx(train[[Y_VARIABLE]], mc = TRUE, ar = 1, mxreg = mX, vcov.type = "ordinary")
+    
+    p_values <- modele_arx[["mean.results"]][["p-value"]][-c(1, 2)]
+    max_p_value <- max(p_values)
+    
+    if (max_p_value > seuil_p_value) {
+      variable_a_supprimer <- variables[which.max(p_values)]
+      variables <- setdiff(variables, variable_a_supprimer)
+    } else {
+      VRAI <- FALSE
+    }
+  }
+  arx_final <- arx(train$Food, mc = TRUE, ar = 1, mxreg = mX, vcov.type = "ordinary")
+  modele_gets <- getsm(arx_final) # Avoir les coeff du modele ARX  + lunchbox test
+  modele_gets
   
 }
-create_df()
+vselec("Food")
+
+result_df <- result_df %>%
+  select("Food", "Metal", "Raw_Material", "Huile", "Wheat", "Sucre")
 
 # FUNCTION ECO----
 eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
@@ -445,10 +519,11 @@ eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
   ## GAM model----
   ## Data preparation
   set.seed(123)
-  smp_size <- floor(0.80 * nrow(DATAFRAME))
-  train_ind <- sample(seq_len(nrow(DATAFRAME)), size = smp_size)
-  train <- DATAFRAME[train_ind, ]
-  test <- DATAFRAME[-train_ind, ]
+  n <- nrow(DATAFRAME)
+  train_size <- round(0.8 * n)
+  train_data <- DATAFRAME[1:train_size, ]
+  test_data <- DATAFRAME[(train_size + 1):n, ]
+  y_real <- test_data[[Y_VARIABLE]]
   
   other_vars <- setdiff(names(train), Y_VARIABLE)
   smooth_terms <- paste0("s(", other_vars, ")")
@@ -480,7 +555,7 @@ eco_models <- function(DATAFRAME, Y_VARIABLE, PERIOD){
   
   
 }
-eco_models(df, "V1", 4)
+eco_models(result_df, "Food", 12)
 
 # FUNCTION ML----
 ml_models <- function(DATAFRAME, Y_VARIABLE){
@@ -489,13 +564,14 @@ ml_models <- function(DATAFRAME, Y_VARIABLE){
   set.seed(123)
   n <- nrow(DATAFRAME)
   train_size <- round(0.8 * n)
-  train <- DATAFRAME[1:train_size, ]
-  test <- DATAFRAME[(train_size+1):n, ]
+  train_data <- DATAFRAME[1:train_size, ]
+  test_data <- DATAFRAME[(train_size + 1):n, ]
+  y_real <- test_data[[Y_VARIABLE]]
   
   mlp_model <- neuralnet(formula(paste(Y_VARIABLE, "~", ".")), data = train, hidden = 1)
   
-  p_mlp <- compute(mlp_model, test[,-1])
-  p_mlp <- as.numeric(p_mlp$net.result)
+  p_mlp <- predict(mlp_model, test[,-1])
+  #p_mlp <- as.numeric(p_mlp$net.result)
   
   rmse_ml <- sqrt(mean((y_real - p_mlp)^2, na.rm = TRUE))
   print(paste("RMSE for MLP:", rmse_ml)) 
@@ -662,7 +738,7 @@ ml_models <- function(DATAFRAME, Y_VARIABLE){
   
  
 }
-ml_models(result_df, "ts_HKE1567_adj")
+ml_models(result_df, "Food")
 
 # FUNCTION PLOT----
 plot_models <- function() {
@@ -792,7 +868,7 @@ cspe <- function(){
   
   ## PLOTTING----
   ### GENERAL PLOT
-  ggplot(prev_df, aes(x = id, group = 1)) +
+  all <- ggplot(prev_df, aes(x = id, group = 1)) +
     geom_line(aes(y = CSPEarmax, color = "ARMAX"), size = 1) +
     geom_line(aes(y = CSPEarx, color = "ARX"), size = 1) +
     geom_line(aes(y = CSPElm, color = "LM"), size = 1) +
@@ -830,8 +906,10 @@ cspe <- function(){
     theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
     ggtitle(" All models CSPE's")
   
+  print(all)
+  
   ### ML VS ECO MODELS PLOT
-  ggplot(prev_df, aes(x=id, group=1)) +
+  sep <- ggplot(prev_df, aes(x=id, group=1)) +
     geom_line(aes(y=CSPEarmax, color="Econometrics"), size=1,alpha=0.7) +
     geom_line(aes(y=CSPEarx, color="Econometrics"), size=1,alpha=0.7) +
     geom_line(aes(y=CSPElm, color="Econometrics"), size=1,alpha=0.7) +
@@ -848,6 +926,8 @@ cspe <- function(){
     theme_bw() +
     theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
     ggtitle(" Machine-Learning vs Econometrics models CSPE's")
+  
+  plot(sep)
   
 }
 cspe()
