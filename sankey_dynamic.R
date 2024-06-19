@@ -3,6 +3,7 @@ library(plotly)
 library(dplyr)
 library(RColorBrewer)
 
+
 # Helper function to create Sankey diagram
 create_sankey <- function(data, title, subtitle, value_col, is_contribution = FALSE, color_palette = NULL, highlight_fleet = NULL) {
   # Renommer la colonne de valeur en 'value' pour la cohérence
@@ -322,3 +323,12 @@ fig <- subplot(
 # Display the figure
 fig
 #htmlwidgets::saveWidget(fig, "index.html", selfcontained = TRUE)
+
+
+
+
+
+
+
+
+# Let's try something else
