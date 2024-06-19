@@ -21,6 +21,7 @@ library(markdown)
 library(forcats)
 
 
+
 #' Warning: This code is the French version of the script, we are only looking
 #' at French fleets and landings.
 
@@ -1800,21 +1801,108 @@ top_10_species <- top_10_species %>%
 
 # Graph: plot the 10 most important species, per fleets, with 3 different periods
 
-# output_file <- "Figures/FRA/prop_species_fleet.pdf"
-# pdf(output_file, width = 10, height = 10)
-# 
-# ggplot(top_10_species, aes(x = reorder(X3A_CODE, proportion), y = proportion, fill = period)) +
-#   geom_bar(stat = "identity", position = "dodge", color = "black", size = 0.2) +
-#   facet_wrap(~FleetIAM, scales = "free_x") +
-#   labs(
-#     title = "Top 10 species per fleet per period",
-#     x = "Species",
-#     y = "Proportion (%)",
-#     fill = "Periods"
-#   ) +
-#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-# 
-# dev.off()
+output_file <- "Figures/FRA/prop_species_fleet.pdf"
+pdf(output_file, width = 10, height = 10)
+
+ggplot(top_10_species, aes(x = reorder(X3A_CODE, proportion), y = proportion, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black", size = 0.2) +
+  facet_wrap(~FleetIAM, scales = c("free")) +
+  labs(
+    title = "Top 10 species per fleet per period",
+    x = "Species",
+    y = "Proportion (%)",
+    fill = "Periods"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+dev.off()
+
+
+
+# Create a new data frame with the percentage change between 2013-2022 & 2021-2022 periods
+prop_change <- prop_last2 %>%
+  pivot_longer(cols = -c(X3A_CODE, period), names_to = "FleetIAM", values_to = "value_last2") %>%
+  left_join(prop_all %>% pivot_longer(cols = -c(X3A_CODE, period), names_to = "FleetIAM", values_to = "value_all"), by = c("X3A_CODE", "FleetIAM")) %>%
+  mutate(pct_change = ifelse(is.na(value_all), NA, (value_last2 - value_all) / value_all * 100)) %>%
+  select(-c(value_last2, value_all)) %>%
+  pivot_wider(names_from = FleetIAM, values_from = pct_change) %>%
+  bind_cols(prop_all %>% select(X3A_CODE, period))%>%
+  select(-c(period.x, period.y, period,X3A_CODE...13))%>%
+  rename(X3A_CODE = "X3A_CODE...1")%>%
+  drop_na()
+
+
+# Create a new data frame with the percentage change between 2013-2022 & 022 periods
+
+# Obtenir les valeurs uniques de X3A_CODE dans les deux data frames
+codes_all <- unique(prop_all$X3A_CODE)
+codes_last1 <- unique(prop_last1$X3A_CODE)
+
+# Trouver les codes en commun
+common_codes <- intersect(codes_all, codes_last1)
+
+# Filtrer les data frames pour ne garder que les lignes avec les codes en commun
+prop_all_filtered <- prop_all[prop_all$X3A_CODE %in% common_codes, ]
+prop_last1_filtered <- prop_last1[prop_last1$X3A_CODE %in% common_codes, ]
+
+prop_change2 <- prop_last1_filtered %>%
+  pivot_longer(cols = -c(X3A_CODE, period), names_to = "FleetIAM", values_to = "value_last2") %>%
+  left_join(prop_all_filtered %>% pivot_longer(cols = -c(X3A_CODE, period), names_to = "FleetIAM", values_to = "value_all"), by = c("X3A_CODE", "FleetIAM")) %>%
+  mutate(pct_change = ifelse(is.na(value_all), NA, (value_last2 - value_all) / value_all * 100)) %>%
+  select(-c(value_last2, value_all)) %>%
+  pivot_wider(names_from = FleetIAM, values_from = pct_change) %>%
+  bind_cols(prop_all_filtered %>% select(X3A_CODE, period))%>%
+  select(-c(period.x, period.y, period,X3A_CODE...13))%>%
+  rename(X3A_CODE = "X3A_CODE...1")%>%
+  drop_na()
+
+
+# Graph between 2013:2022 and the last 2 years
+melted_data <- melt(prop_change, id.vars = "X3A_CODE")
+
+# Create a function to generate the plots
+plot_fleet <- function(fleet_col) {
+  ggplot(subset(melted_data, variable == fleet_col), aes(x = X3A_CODE, y = value, fill = X3A_CODE)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    coord_flip() +
+    labs(title = paste("Fleet:", fleet_col), x = NULL, y = "Variation Change (%)") +
+    theme_minimal()+
+    guides(fill="none") # No Legend
+}
+
+
+output_file <- "Figures/FRA/Variations/var_2013_2022_AND_LAST2.pdf"
+pdf(output_file, width = 12, height = 10)
+
+plots <- lapply(names(prop_change)[2:ncol(prop_change)], plot_fleet)
+do.call(gridExtra::grid.arrange, c(plots, ncol = 3))
+
+dev.off()
+
+
+# Graph between 2013:2022 and the last 2 years
+melted_data <- melt(prop_change2, id.vars = "X3A_CODE")
+
+# Create a function to generate the plots
+plot_fleet <- function(fleet_col) {
+  ggplot(subset(melted_data, variable == fleet_col), aes(x = X3A_CODE, y = value, fill = X3A_CODE)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    coord_flip() +
+    labs(title = paste("Fleet:", fleet_col), x = NULL, y = "Variation Change (%)") +
+    theme_minimal()+
+    guides(fill="none") # No Legend
+}
+
+
+output_file <- "Figures/FRA/Variations/var_2013_2022_AND_LAST1.pdf"
+pdf(output_file, width = 12, height = 10)
+
+plots <- lapply(names(prop_change)[2:ncol(prop_change)], plot_fleet)
+do.call(gridExtra::grid.arrange, c(plots, ncol = 3))
+
+dev.off()
+
+
 
 
 # Sankey's Diagram----
@@ -3112,3 +3200,75 @@ create_sankey <- function(highlight_fleet = NULL) {
 fig <- create_sankey()
 fig
 
+
+
+# Landings Value contribution----
+#' The idea is to understand which species contribute the most to the landings
+#' in term of value (euro)
+
+## From the last two years (2021-2022)
+prop_val <- landingsV2 %>%
+  filter(YEAR %in% c(2021, 2022)) %>%
+  select(totvallandg, X3A_CODE) %>%
+  group_by(X3A_CODE) %>%
+  summarise(totvallandg = sum(totvallandg, na.rm = TRUE), .groups = "drop") %>%
+  mutate(total = sum(totvallandg),
+         proportion = totvallandg / total)%>%
+  arrange(desc(proportion)) %>%
+  select(-c(totvallandg, total))
+
+output_file <- "Figures/FRA/landings_value_contribution_2122.pdf"
+pdf(output_file, width = 12, height = 10)
+
+ggplot(prop_val, aes(x = reorder(X3A_CODE, proportion), y = proportion)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "Species", y = "Proportion", title = "Proportions of each species ") +
+  coord_flip() +
+  labs(
+    x = "Species",
+    y = "Landings in euros",
+    title = "Proportion of each species in landings (euros) over the 2021-2022 period"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold",margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold",margin = margin(r = 20))
+  )
+dev.off()
+
+
+
+## From all the period (2013:2022)
+prop_val <- landingsV2 %>%
+  select(totvallandg, X3A_CODE) %>%
+  group_by(X3A_CODE) %>%
+  summarise(totvallandg = sum(totvallandg, na.rm = TRUE), .groups = "drop") %>%
+  mutate(total = sum(totvallandg),
+         proportion = totvallandg / total)%>%
+  arrange(desc(proportion)) %>%
+  select(-c(totvallandg, total))
+
+output_file <- "Figures/FRA/landings_value_contribution_ALL.pdf"
+pdf(output_file, width = 12, height = 10)
+
+ggplot(prop_val, aes(x = reorder(X3A_CODE, proportion), y = proportion)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "Species", y = "Proportion", title = "Proportions of each species ") +
+  coord_flip() +
+  labs(
+    x = "Species",
+    y = "Landings in euros",
+    title = "Proportion of each species in landings (euros) over the 2013-2022 period"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 13, face = "bold"),
+    plot.background = element_rect(color = "white", fill = "white"),
+    plot.margin = margin(20, 40, 20, 40),
+    axis.title.x = element_text(face = "bold",margin = margin(t = 20)),
+    axis.title.y = element_text(face = "bold",margin = margin(r = 20))
+  )
+dev.off()
