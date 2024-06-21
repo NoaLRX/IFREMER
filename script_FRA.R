@@ -1914,6 +1914,7 @@ dev.off()
 #' dependency of each fleets to each species, in term of landings euros.
 #' We will use the https://flourish.studio/ website to create the dynamic sankey.
 #' The idea here is just to create the data frame, and import it on flourish.
+landingsALL <- read.csv("Perso/landings_ESPFR.csv")
 
 ## Dependency----
 #' We will focus only on GSA7 and the 2021-2022 period for now.
@@ -2012,98 +2013,125 @@ write.csv(dep_hok, "/Users/noa/Desktop/IFREMER/Perso/dep_hok.csv")
 
 
 ## Contribution----
+landingsALL <- read.csv("Perso/landings_ESPFR.csv")
 #' We will focus only on GSA7 and the 2021-2022 period for now.
-select <- landingsALL %>%
+landingsALL <- landingsALL %>%
   filter(YEAR %in% c(2021,2022)) %>% # Filter on 2021-2022 
   filter(SUB_REGION == "GSA7") # Filter on GSA 7
 
-#' We will do one DF for each fleet (DFN, DTS & HOK) including ESP & FRA 
+         
+landingsALL$FleetIAM2 <- ifelse(
+  landingsALL$COUNTRY == "FRA" &
+    landingsALL$FleetIAM %in% c(
+      "FRA_DTS_>24m",
+      "FRA_DTS_18-24m",
+      "FRA_DFN_06-12m",
+      "FRA_HOK_06-12m"
+    ),
+  landingsALL$FleetIAM,
+  ifelse(
+    landingsALL$COUNTRY == "FRA",
+    "OtherFR",
+    ifelse(landingsALL$COUNTRY == "ESP", "OtherESP", landingsALL$FleetIAM)
+  )
+)
 
-### DFN Fleets----
-#### SELECT THE MOST IMPORTANT SPECIES
-contrib_dfn <- select %>%
-  filter(FleetIAM %in% c("ESP_DFN_06-12m", "ESP_DFN_12-18m", 
-                         "FRA_DFN_00-06m", "FRA_DFN_06-12m")) %>%
-  select(X3A_CODE, FleetIAM, totwghtlandg)%>%
-  group_by(FleetIAM,X3A_CODE) %>%
+
+select <- landingsALL %>%
+  filter((X3A_CODE %in% c("MUT", "NEP", "ARA", "DPS","HKE")))%>% # Filtre on species
+  select(X3A_CODE, FleetIAM2, totwghtlandg)%>%
+  group_by(FleetIAM2,X3A_CODE) %>%
   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),.groups = "drop") %>%
   arrange(desc(totwghtlandg))
 
-# Select the 10 most important taxons
-taxons <- contrib_dfn %>%
-  select(X3A_CODE, totwghtlandg) %>%
-  group_by(X3A_CODE) %>%
-  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-  arrange(desc(totwghtlandg))
-
-tentaxons <- unique(head(taxons["X3A_CODE"], n=10))
-tentaxons <- unlist(tentaxons)
-print(length(tentaxons))
-
-contrib_dfn <- contrib_dfn %>%
-  filter(X3A_CODE %in% tentaxons)
-print(length(unique(contrib_dfn$FleetIAM)))
-
-head(contrib_dfn)
-write.csv(contrib_dfn, "/Users/noa/Desktop/IFREMER/Perso/contrib_dfn.csv")
+write.csv(select,"Perso/contribALL.csv")
 
 
-### DTS Fleets----
-#### SELECT THE MOST IMPORTANT SPECIES
-contrib_dts <- select %>%
-  filter(FleetIAM %in% c("FRA_DTS_>24m","FRA_DTS_18-24m","ESP_DTS_>=24m",
-                         "ESP_DTS_18-24m","ESP_DTS_12-18m","ESP_DTS_<12m")) %>%
-  select(X3A_CODE, FleetIAM, totwghtlandg)%>%
-  group_by(FleetIAM,X3A_CODE) %>%
-  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),.groups = "drop") %>%
-  arrange(desc(totwghtlandg))
-
-# Select the 10 most important taxons
-taxons <- contrib_dts %>%
-  select(X3A_CODE, totwghtlandg) %>%
-  group_by(X3A_CODE) %>%
-  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-  arrange(desc(totwghtlandg))
-
-tentaxons <- unique(head(taxons["X3A_CODE"], n=10))
-tentaxons <- unlist(tentaxons)
-print(length(tentaxons))
-
-contrib_dts <- contrib_dts %>%
-  filter(X3A_CODE %in% tentaxons)
-print(length(unique(contrib_dts$FleetIAM)))
-
-head(contrib_dts)
-write.csv(contrib_dts, "/Users/noa/Desktop/IFREMER/Perso/contrib_dts.csv")
-
-
-### HOK Fleets----
-#### SELECT THE MOST IMPORTANT SPECIES
-contrib_hok <- select %>%
-  filter(FleetIAM %in% c("ESP_HOK_06-12m","ESP_HOK_12-18m","ESP_HOK_18-24m",
-                         "FRA_HOK_00-06m","FRA_HOK_06-12m","FRA_HOK_12-18m")) %>%
-  select(X3A_CODE, FleetIAM, totwghtlandg)%>%
-  group_by(FleetIAM,X3A_CODE) %>%
-  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),.groups = "drop") %>%
-  arrange(desc(totwghtlandg))
-
-# Select the 10 most important taxons
-taxons <- contrib_hok %>%
-  select(X3A_CODE, totwghtlandg) %>%
-  group_by(X3A_CODE) %>%
-  summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
-  arrange(desc(totwghtlandg))
-
-tentaxons <- unique(head(taxons["X3A_CODE"], n=10))
-tentaxons <- unlist(tentaxons)
-print(length(tentaxons))
-
-contrib_hok <- contrib_hok %>%
-  filter(X3A_CODE %in% tentaxons)
-print(length(unique(contrib_hok$FleetIAM)))
-
-head(contrib_hok)
-write.csv(contrib_hok, "/Users/noa/Desktop/IFREMER/Perso/contrib_hok.csv")
+# ### DFN Fleets----
+# #### SELECT THE MOST IMPORTANT SPECIES
+# contrib_dfn <- select %>%
+#   filter(FleetIAM %in% c("ESP_DFN_06-12m", "ESP_DFN_12-18m", 
+#                          "FRA_DFN_00-06m", "FRA_DFN_06-12m")) %>%
+#   select(X3A_CODE, FleetIAM, totwghtlandg)%>%
+#   group_by(FleetIAM,X3A_CODE) %>%
+#   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),.groups = "drop") %>%
+#   arrange(desc(totwghtlandg))
+# 
+# # Select the 10 most important taxons
+# taxons <- contrib_dfn %>%
+#   select(X3A_CODE, totwghtlandg) %>%
+#   group_by(X3A_CODE) %>%
+#   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+#   arrange(desc(totwghtlandg))
+# 
+# tentaxons <- unique(head(taxons["X3A_CODE"], n=10))
+# tentaxons <- unlist(tentaxons)
+# print(length(tentaxons))
+# 
+# contrib_dfn <- contrib_dfn %>%
+#   filter(X3A_CODE %in% tentaxons)
+# print(length(unique(contrib_dfn$FleetIAM)))
+# 
+# head(contrib_dfn)
+# write.csv(contrib_dfn, "/Users/noa/Desktop/IFREMER/Perso/contrib_dfn.csv")
+# 
+# 
+# ### DTS Fleets----
+# #### SELECT THE MOST IMPORTANT SPECIES
+# contrib_dts <- select %>%
+#   filter(FleetIAM %in% c("FRA_DTS_>24m","FRA_DTS_18-24m","ESP_DTS_>=24m",
+#                          "ESP_DTS_18-24m","ESP_DTS_12-18m","ESP_DTS_<12m")) %>%
+#   select(X3A_CODE, FleetIAM, totwghtlandg)%>%
+#   group_by(FleetIAM,X3A_CODE) %>%
+#   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),.groups = "drop") %>%
+#   arrange(desc(totwghtlandg))
+# 
+# # Select the 10 most important taxons
+# taxons <- contrib_dts %>%
+#   select(X3A_CODE, totwghtlandg) %>%
+#   group_by(X3A_CODE) %>%
+#   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+#   arrange(desc(totwghtlandg))
+# 
+# tentaxons <- unique(head(taxons["X3A_CODE"], n=10))
+# tentaxons <- unlist(tentaxons)
+# print(length(tentaxons))
+# 
+# contrib_dts <- contrib_dts %>%
+#   filter(X3A_CODE %in% tentaxons)
+# print(length(unique(contrib_dts$FleetIAM)))
+# 
+# head(contrib_dts)
+# write.csv(contrib_dts, "/Users/noa/Desktop/IFREMER/Perso/contrib_dts.csv")
+# 
+# 
+# ### HOK Fleets----
+# #### SELECT THE MOST IMPORTANT SPECIES
+# contrib_hok <- select %>%
+#   filter(FleetIAM %in% c("ESP_HOK_06-12m","ESP_HOK_12-18m","ESP_HOK_18-24m",
+#                          "FRA_HOK_00-06m","FRA_HOK_06-12m","FRA_HOK_12-18m")) %>%
+#   select(X3A_CODE, FleetIAM, totwghtlandg)%>%
+#   group_by(FleetIAM,X3A_CODE) %>%
+#   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE),.groups = "drop") %>%
+#   arrange(desc(totwghtlandg))
+# 
+# # Select the 10 most important taxons
+# taxons <- contrib_hok %>%
+#   select(X3A_CODE, totwghtlandg) %>%
+#   group_by(X3A_CODE) %>%
+#   summarise(totwghtlandg = sum(totwghtlandg, na.rm = TRUE), .groups = "drop") %>%
+#   arrange(desc(totwghtlandg))
+# 
+# tentaxons <- unique(head(taxons["X3A_CODE"], n=10))
+# tentaxons <- unlist(tentaxons)
+# print(length(tentaxons))
+# 
+# contrib_hok <- contrib_hok %>%
+#   filter(X3A_CODE %in% tentaxons)
+# print(length(unique(contrib_hok$FleetIAM)))
+# 
+# head(contrib_hok)
+# write.csv(contrib_hok, "/Users/noa/Desktop/IFREMER/Perso/contrib_hok.csv")
 
 
 
