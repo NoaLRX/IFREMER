@@ -1,5 +1,8 @@
-gva <- read.xlsx("data/fbar_gva.xlsx", sheet = 1)
-fbar <- read.xlsx("data/fbar_gva.xlsx", sheet = 2)
+library(readxl)
+library(ggplot2)
+
+gva <- read_xlsx("data/fbar_gva.xlsx", sheet = 1)
+fbar <- read_xlsx("data/fbar_gva.xlsx", sheet = 2)
 fbar_t <- t(fbar)
 fbar_t <- data.frame(FBAR2025 = colnames(fbar)[-1], t(fbar[-1]))
 colnames(fbar_t)[-1] <- fbar[[1]]
@@ -56,34 +59,58 @@ generate_fictional_data <- function(data, variation = 0.50) {
   return(new_data)
 }
 
-# Données originales
-data_original <- data.frame(
-  scenario = c("SQ", "A", "D", "L"),
-  gva_moyennes = c(1.1490955, 0.8275081, 0.7686793, 1.1498247),
-  fbar_moyennes = c(2.2827133, 0.5801356, 0.5791226, 2.3088715),
-  model = "Original"
+# Données IAM
+data_IAM <- data.frame(
+  scenario = c("A", "D", "L"),
+  gva_moyennes = c( 0.78, 0.73, 1.01),
+  fbar_moyennes = c( 0.5801356, 0.5791226, 2.3088715),
+  model = "IAM"
 )
 
-# Générer des données pour 3 modèles fictifs
-data_model1 <- generate_fictional_data(data_original)
-data_model1$model <- "Model 1"
+# Données BEMTOOL
+data_BEMTOOL <- data.frame(
+  scenario = c("A", "D", "L"),
+  gva_moyennes = c(0.38, 0.47, -1.01),
+  fbar_moyennes = c(0.79, 0.74, 1.07),
+  model = "BEMTOOL"
+)
 
-data_model2 <- generate_fictional_data(data_original)
-data_model2$model <- "Model 2"
+# Données Fictive
+data_FICTIV <- data.frame(
+  scenario = c("A", "D", "L"),
+  gva_moyennes = c(0.65, 0.47, -1.01),
+  fbar_moyennes = c(0.56, 0.44, 2.20),
+  model = "Fake Model 3"
+)
 
-data_model3 <- generate_fictional_data(data_original)
-data_model3$model <- "Model 3"
+# Données Fictive 2
+data_FICTIV2 <- data.frame(
+  scenario = c("A", "D", "L"),
+  gva_moyennes = c(0.35, 0.77, -1.20),
+  fbar_moyennes = c(0.49, 0.44, 1.3),
+  model = "Fake Model 4"
+)
+
+# # Générer des données pour 3 modèles fictifs
+# data_model1 <- generate_fictional_data(data_original)
+# data_model1$model <- "Model 1"
+# 
+# data_model2 <- generate_fictional_data(data_original)
+# data_model2$model <- "Model 2"
+# 
+# data_model3 <- generate_fictional_data(data_original)
+# data_model3$model <- "Model 3"
 
 # Combiner toutes les données
-all_data <- rbind(data_original, data_model1, data_model2, data_model3)
+all_data <- rbind(data_IAM, data_BEMTOOL)
 
 # Créer le graphique
 ggplot(all_data, aes(x = gva_moyennes, y = fbar_moyennes, label = scenario, shape = scenario, color = model)) +
   geom_point(size = 4, stroke = 1.5, fill = NA) +
   geom_text(hjust = -0.3, vjust = 0, show.legend = FALSE) +
   scale_shape_manual(values = c(15, 16, 17, 18)) +
-  scale_color_manual(values = c("darkblue", "orange", "darkgreen", "purple")) +
-  labs(x = "Ratio GVA 2025 / GVA 2022", 
+  scale_color_manual(values = c("darkblue", "red", "darkgreen", "purple")) +
+  labs(x = "Ratio GVA 2025 /  SQ 2025", 
        y = "Rato F2025 / FMSY", 
        title = "Relation between GVA & FBAR per scenario & model",
        shape = "Scénario",

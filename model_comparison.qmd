@@ -1,0 +1,101 @@
+---
+title: "models_comparison"
+format: pdf
+editor: visual
+execute:
+  echo: false
+---
+
+## Methodology
+
+The idea is to have a final table that looks like this:
+
+```{r}
+#|echo: false
+
+library(ggplot2)
+```
+
+```{r}
+#|echo: false
+
+# Données IAM
+data_IAM <- data.frame(
+  scenario = c("A", "D", "L"),
+  gva_moyennes = c( 0.78, 0.73, 1.01),
+  fbar_moyennes = c( 0.5801356, 0.5791226, 2.3088715),
+  model = "IAM"
+)
+
+# Données BEMTOOL
+data_BEMTOOL <- data.frame(
+  scenario = c("A", "D", "L"),
+  gva_moyennes = c(0.38, 0.47, -1.01),
+  fbar_moyennes = c(0.79, 0.74, 1.07),
+  model = "BEMTOOL"
+)
+
+# Données Fictive
+data_FICTIV <- data.frame(
+  scenario = c("A", "D", "L"),
+  gva_moyennes = c(0.65, 0.47, -1.01),
+  fbar_moyennes = c(0.56, 0.44, 2.20),
+  model = "Fake Model 3"
+)
+
+# Données Fictive 2
+data_FICTIV2 <- data.frame(
+  scenario = c("A", "D", "L"),
+  gva_moyennes = c(0.35, 0.77, -1.20),
+  fbar_moyennes = c(0.49, 0.44, 1.3),
+  model = "Fake Model 4"
+)
+
+# # Générer des données pour 3 modèles fictifs
+# data_model1 <- generate_fictional_data(data_original)
+# data_model1$model <- "Model 1"
+# 
+# data_model2 <- generate_fictional_data(data_original)
+# data_model2$model <- "Model 2"
+# 
+# data_model3 <- generate_fictional_data(data_original)
+# data_model3$model <- "Model 3"
+
+# Combiner toutes les données
+all_data <- rbind(data_IAM, data_BEMTOOL, data_FICTIV, data_FICTIV2)
+print(all_data)
+```
+
+To produce a plot like this
+
+```{r}
+#|echo: false
+
+ggplot(all_data, aes(x = gva_moyennes, y = fbar_moyennes, label = scenario, shape = scenario, color = model)) +
+  geom_point(size = 4, stroke = 1.5, fill = NA) +
+  geom_text(hjust = -0.3, vjust = 0, show.legend = FALSE) +
+  scale_shape_manual(values = c(15, 16, 17, 18)) +
+  scale_color_manual(values = c("darkblue", "orange", "darkgreen", "purple")) +
+  labs(x = "Ratio GVA 2025 /  SQ 2025", 
+       y = "Rato F2025 / FMSY", 
+       title = "Relation between GVA & FBAR per scenario & model",
+       shape = "Scénario",
+       color = "Modèle") +
+  theme_bw() +
+  theme(panel.grid.major = element_line(color = "gray", linetype = "dashed"),
+        panel.grid.minor = element_line(color = "lightgray", linetype = "dotted")) +
+  geom_vline(xintercept = 0, linetype = "solid", color = "black") +
+  geom_hline(yintercept = 0, linetype = "solid", color = "black") +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "black", linewidth = 1.5) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 1.5)+
+  theme(plot.title = element_text(face = "bold")) 
+
+```
+
+To obtain this we need multiple ratios:
+
+-   each fleets GVA per scenarios that we could divide by the SQ scenarios
+
+-   each species F per scenarios that we could divide by the FMSY
+
+We then need to compute an average per scenarios, for the GVA and for the F.
